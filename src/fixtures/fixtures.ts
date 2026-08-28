@@ -1,15 +1,17 @@
-import { test as base, expect } from '@playwright/test';
+import { test as base, expect, Page } from '@playwright/test';
 import { RegisterPage } from '../pages/register.page';
 import { EditorPage } from '../pages/editor.page';
 import { ArticlePage } from '../pages/article.page';
 
 type AuthFixtures = {
+    authenticatedPage: Page;
     authenticatedEditorPage: EditorPage;
     authenticatedArticlePage: ArticlePage;
 };
 
 export const test = base.extend<AuthFixtures>({
-    authenticatedEditorPage: async ({ page }, use) => {
+    // Base authenticated page fixture: registers a fresh user and yields the authenticated page context
+    authenticatedPage: async ({ page }, use) => {
         const timestamp = Date.now();
         const uniqueUsername = `user_${timestamp}`;
         const uniqueEmail = `user_${timestamp}@test.com`;
@@ -20,34 +22,29 @@ export const test = base.extend<AuthFixtures>({
         await registerPage.register(uniqueUsername, uniqueEmail, password);
 
         await expect(page.getByRole('link', { name: uniqueUsername })).toBeVisible();
-        await expect(page.getByRole('link', { name: 'New Article' })).toBeVisible();
 
-        const editorPage = new EditorPage(page);
+        // Yield the authenticated page object directly
+        await use(page);
+    },
+
+    authenticatedEditorPage: async ({ authenticatedPage }, use) => {
+        const editorPage = new EditorPage(authenticatedPage);
         await editorPage.goto();
 
         await use(editorPage);
     },
-    authenticatedArticlePage: async ({ page }, use) => {
-        const timestamp = Date.now();
-        const uniqueUsername = `user_${timestamp}`;
-        const uniqueEmail = `user_${timestamp}@test.com`;
-        const password = 'Password123!';
 
-        const registerPage = new RegisterPage(page);
-        await registerPage.goto();
-        await registerPage.register(uniqueUsername, uniqueEmail, password);
-        await expect(page.getByRole('link', { name: uniqueUsername })).toBeVisible();
-
-        await page.goto('/');
+    authenticatedArticlePage: async ({ authenticatedPage }, use) => {
+        await authenticatedPage.goto('/');
 
         // Wait for feed to load by targeting a card with an actual article heading
-        await page.locator('.article-preview').filter({ has: page.getByRole('heading') }).first().click();
+        await authenticatedPage.locator('.article-preview').filter({ has: authenticatedPage.getByRole('heading') }).first().click();
 
         // Ensure route transition completes before yielding
-        await expect(page).toHaveURL(/.*\/article\/.*/);
+        await expect(authenticatedPage).toHaveURL(/.*\/article\/.*/);
 
         // Yield article page object to test
-        const articlePage = new ArticlePage(page);
+        const articlePage = new ArticlePage(authenticatedPage);
         await use(articlePage);
     },
 });
