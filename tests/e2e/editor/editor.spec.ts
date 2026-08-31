@@ -2,7 +2,10 @@ import { test, expect } from '../../../src/fixtures/fixtures';
 
 test.describe('Article Publishing and Editing', () => {
 
-    test('create and publish a new article successfully', async ({ authenticatedEditorPage, page }) => {
+    test('create and publish a new article successfully', async ({ editorPage, page }) => {
+
+        await editorPage.goto();
+
         const timestamp = Date.now();
         const articleTitle = `Test Article ${timestamp}`;
         const articleDescription = 'E2E test description';
@@ -12,7 +15,7 @@ test.describe('Article Publishing and Editing', () => {
         // Convert title to slug format (e.g., "test-article-1724597000")
         const expectedSlugPrefix = articleTitle.toLowerCase().replace(/\s+/g, '-');
 
-        await authenticatedEditorPage.createArticle(
+        await editorPage.createArticle(
             articleTitle,
             articleDescription,
             articleBody,
@@ -23,12 +26,15 @@ test.describe('Article Publishing and Editing', () => {
         await expect(page.getByRole('heading', { name: articleTitle })).toBeVisible();
     });
 
-    test('edit an existing article title successfully', async ({ authenticatedEditorPage, page }) => {
+    test('edit an existing article title successfully', async ({ editorPage, page }) => {
+
+        await editorPage.goto();
+
         const timestamp = Date.now();
         const initialTitle = `Original Article ${timestamp}`;
         const updatedTitle = `Updated Article ${timestamp}`;
 
-        await authenticatedEditorPage.createArticle(
+        await editorPage.createArticle(
             initialTitle,
             'Original description',
             'Original body content'
@@ -39,10 +45,10 @@ test.describe('Article Publishing and Editing', () => {
         await page.getByRole('link', { name: 'Edit Article' }).first().click();
 
         // Wait for the edit form to be populated with existing data
-        await expect(authenticatedEditorPage.titleInput).toHaveValue(initialTitle);
+        await expect(editorPage.titleInput).toHaveValue(initialTitle);
 
-        await authenticatedEditorPage.titleInput.fill(updatedTitle);
-        await authenticatedEditorPage.publishButton.click();
+        await editorPage.titleInput.fill(updatedTitle);
+        await editorPage.publishButton.click();
 
         const expectedSlugPrefix = updatedTitle.toLowerCase().replace(/\s+/g, '-');
 
@@ -50,11 +56,14 @@ test.describe('Article Publishing and Editing', () => {
         await expect(page.getByRole('heading', { name: updatedTitle })).toBeVisible();
     });
 
-    test('delete an existing article successfully', async ({ authenticatedEditorPage, page }) => {
+    test('delete an existing article successfully', async ({ editorPage, page }) => {
+
+        await editorPage.goto();
+
         const timestamp = Date.now();
         const articleTitle = `Delete Article ${timestamp}`;
 
-        await authenticatedEditorPage.createArticle(
+        await editorPage.createArticle(
             articleTitle,
             'Description for deletion test',
             'Body content for deletion test'
@@ -66,12 +75,15 @@ test.describe('Article Publishing and Editing', () => {
         await expect(page).toHaveURL('/');
     });
 
-    test('displays validation errors when submitting an empty form', async ({ authenticatedEditorPage }) => {
-        // Attempt to publish without filling required fields
-        await authenticatedEditorPage.publishButton.click();
+    test('displays validation errors when submitting an empty form', async ({ editorPage }) => {
 
-        await expect(authenticatedEditorPage.errorMessages).toBeVisible();
-        await expect(authenticatedEditorPage.errorMessages.locator('li')).toContainText([
+        await editorPage.goto();
+
+        // Attempt to publish without filling required fields
+        await editorPage.publishButton.click();
+
+        await expect(editorPage.errorMessages).toBeVisible();
+        await expect(editorPage.errorMessages.locator('li')).toContainText([
             "title can't be blank",
             "description can't be blank",
             "body can't be blank"
