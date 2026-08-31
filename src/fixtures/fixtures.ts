@@ -5,47 +5,43 @@ import { ArticlePage } from '../pages/article.page';
 
 type AuthFixtures = {
     authenticatedPage: Page;
-    authenticatedEditorPage: EditorPage;
-    authenticatedArticlePage: ArticlePage;
+    editorPage: EditorPage;
+    articlePage: ArticlePage;
 };
 
 export const test = base.extend<AuthFixtures>({
     // Base authenticated page fixture: registers a fresh user and yields the authenticated page context
-    authenticatedPage: async ({ page }, use) => {
+    authenticatedPage: async ({ page, request }, use) => {
         const timestamp = Date.now();
         const uniqueUsername = `user_${timestamp}`;
         const uniqueEmail = `user_${timestamp}@test.com`;
         const password = 'Password123!';
 
-        const registerPage = new RegisterPage(page);
-        await registerPage.goto();
-        await registerPage.register(uniqueUsername, uniqueEmail, password);
+        const response = await request.post('https://api.realworld.show/api/users', {
+            data: {
+                user: {
+                    username: uniqueUsername,
+                    email: uniqueEmail,
+                    password: password,
+                },
+            },
+        });
+        const { user } = await response.json();
 
-        await expect(page.getByRole('link', { name: uniqueUsername })).toBeVisible();
+        await page.addInitScript((token) => {
+            window.localStorage.setItem('jwtToken', token);
+        }, user.token);
 
-        // Yield the authenticated page object directly
+        await page.goto('/');
         await use(page);
     },
 
-    authenticatedEditorPage: async ({ authenticatedPage }, use) => {
-        const editorPage = new EditorPage(authenticatedPage);
-        await editorPage.goto();
-
-        await use(editorPage);
+    editorPage: async ({ authenticatedPage }, use) => {
+        await use(new EditorPage(authenticatedPage));
     },
 
-    authenticatedArticlePage: async ({ authenticatedPage }, use) => {
-        await authenticatedPage.goto('/');
-
-        // Wait for feed to load by targeting a card with an actual article heading
-        await authenticatedPage.locator('.article-preview').filter({ has: authenticatedPage.getByRole('heading') }).first().click();
-
-        // Ensure route transition completes before yielding
-        await expect(authenticatedPage).toHaveURL(/.*\/article\/.*/);
-
-        // Yield article page object to test
-        const articlePage = new ArticlePage(authenticatedPage);
-        await use(articlePage);
+    articlePage: async ({ authenticatedPage }, use) => {
+        await use(new ArticlePage(authenticatedPage));
     },
 });
 
