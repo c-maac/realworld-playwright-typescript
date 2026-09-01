@@ -20,7 +20,7 @@ export class EditorPage extends BasePage {
 
     }
 
-    async goto(): Promise<void> {
+    async goto() {
         await this.navigateTo('/editor');
     }
 
@@ -29,7 +29,7 @@ export class EditorPage extends BasePage {
         description: string,
         body: string,
         tags: string[] = []
-    ): Promise<void> {
+    ) {
         await this.titleInput.fill(title);
         await this.descriptionInput.fill(description);
         await this.bodyInput.fill(body);

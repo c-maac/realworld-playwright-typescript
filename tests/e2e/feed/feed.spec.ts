@@ -2,14 +2,13 @@ import { test, expect } from '../../../src/fixtures/fixtures';
 
 test.describe('Personalized Feed', () => {
 
-    test('display followed author articles in Your Feed tab', async ({
+    test('display followed author posts in personalized feed', async ({
         authenticatedPage,
         request,
     }) => {
         const targetAuthor = 'johndoe';
 
         const jwt = await authenticatedPage.evaluate(() => localStorage.getItem('jwtToken'));
-
         const followResponse = await request.post(`https://api.realworld.show/api/profiles/${targetAuthor}/follow`, {
             headers: {
                 'Authorization': `Token ${jwt}`,
@@ -18,9 +17,7 @@ test.describe('Personalized Feed', () => {
         });
         expect(followResponse.ok()).toBeTruthy();
 
-        await authenticatedPage.goto('/');
-        const yourFeedTab = authenticatedPage.getByRole('link', { name: /your feed/i });
-        await yourFeedTab.click();
+        await authenticatedPage.goto('/?feed=following');
 
         const firstArticlePreview = authenticatedPage
             .locator('.article-preview')

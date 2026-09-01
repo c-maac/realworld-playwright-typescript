@@ -2,11 +2,11 @@ import { test, expect } from '../../../src/fixtures/fixtures';
 
 test.describe('Login Flow', () => {
 
-    test('log in successfully with valid credentials and redirect to home feed', async ({ page, request, loginPage }) => {
+    test('log in with valid credentials and redirect to home feed', async ({ page, request, loginPage }) => {
 
         const timestamp = Date.now();
         const uniqueUsername = `user_${timestamp}`;
-        const uniqueEmail = `user_${timestamp}@etest.com`;
+        const uniqueEmail = `user_${timestamp}@test.com`;
         const password = 'Password123!';
 
         const response = await request.post('https://api.realworld.show/api/users', {
@@ -28,7 +28,7 @@ test.describe('Login Flow', () => {
         await expect(page.getByRole('link', { name: uniqueUsername })).toBeVisible();
     });
 
-    test('display validation error when logging in with invalid credentials', async ({ page, loginPage }) => {
+    test('display error message on invalid credentials', async ({ page, loginPage }) => {
 
         await loginPage.goto();
         await loginPage.login('nonexistent_user@test.com', 'WrongPassword123!');

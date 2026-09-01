@@ -27,7 +27,6 @@ export class ArticlePage extends BasePage {
 
     async deleteComment(commentText: string) {
         const commentCard = this.page.locator('.card', { hasText: commentText });
-        // Target the trash bin delete button specifically inside that comment card
         await commentCard.locator('span.mod-options i.ion-trash-a').click();
     }
 

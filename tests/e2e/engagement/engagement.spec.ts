@@ -1,48 +1,49 @@
 import { test, expect } from '../../../src/fixtures/fixtures';
 
-test.describe('Article Page Engagement', () => {
-    // Known static seed article on demo.realworld.show
+test.describe('Engagement', () => {
+    // Uses a known static article because backend session isolation prevents cross-user 
+    // content visibility. User-specific interactions (likes, follows, comments) are isolated 
+    // to the active test session, eliminating state pollution across test runs.
     const publicArticleSlug = 'how-to-learn-javascript-efficiently';
 
-    test('favorite and unfavorite an existing article', async ({
+    test('toggle article favorite state', async ({
         authenticatedPage,
         articlePage,
     }) => {
-        // Direct Entry Point
         await authenticatedPage.goto(`/article/${publicArticleSlug}`);
 
         await articlePage.toggleFavorite();
-        await expect(articlePage.favoriteArticleButton).toHaveText(/unfavorite/i);
+        await expect(articlePage.favoriteArticleButton).toHaveText(/\bunfavorite\b/i);
 
         await articlePage.toggleFavorite();
-        // Matches " Favorite..." or "Favorite...", but NOT " Unfavorite..."
-        await expect(articlePage.favoriteArticleButton).toHaveText(/^\s*favorite/i);
+        // Matches "Favorite", " Favorite", "Favorite (1)"
+        // BLOCKS "Unfavorite"
+        await expect(articlePage.favoriteArticleButton).toHaveText(/\bfavorite\b/i);
     });
 
-    test('follow and unfollow an author', async ({
+    test('toggle author follow state', async ({
         authenticatedPage,
         articlePage,
     }) => {
-        
+
         await authenticatedPage.goto(`/article/${publicArticleSlug}`);
 
         await articlePage.toggleFollow();
-        await expect(articlePage.followAuthorButton).toContainText('Unfollow');
+        await expect(articlePage.followAuthorButton).toContainText(/\bunfollow\b/i);
 
         await articlePage.toggleFollow();
         await expect(articlePage.followAuthorButton).toHaveText(/\bfollow\b/i);
     });
 
-    test('post and delete a new comment on an article', async ({
+    test('post and delete comment on article', async ({
         authenticatedPage,
         articlePage,
     }) => {
-        
+
         await authenticatedPage.goto(`/article/${publicArticleSlug}`);
 
         const commentText = `Automation Test Comment - ${Date.now()}`;
 
-        // Ensure comment form finishes loading before taking initial count
         await expect(articlePage.commentInput).toBeVisible();
         const initialCount = await articlePage.commentCards.count();
 

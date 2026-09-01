@@ -2,12 +2,11 @@ import { test, expect } from '../../../src/fixtures/fixtures';
 
 test.describe('Registration Flow', () => {
 
-    test('register a new user successfully and redirect to home page', async ({ page, registerPage }) => {
+    test('register a new user and redirect to home page', async ({ page, registerPage }) => {
 
         await registerPage.goto();
 
         // Generate unique credentials to avoid collisions on repeat runs
-        // Clean-up/teardown will be omitted as the RealWorld Conduit backend does not expose a user deletion endpoint
         const timestamp = Date.now();
         const uniqueUsername = `user_${timestamp}`;
         const uniqueEmail = `user_${timestamp}@test.com`;
@@ -19,7 +18,7 @@ test.describe('Registration Flow', () => {
         await expect(page.getByRole('link', { name: uniqueUsername })).toBeVisible();
     });
 
-    test('display validation errors when registration fails', async ({ page, registerPage }) => {
+    test('display error message on duplicate registration', async ({ page, registerPage }) => {
 
         await registerPage.goto();
 

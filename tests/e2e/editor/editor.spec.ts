@@ -1,8 +1,8 @@
 import { test, expect } from '../../../src/fixtures/fixtures';
 
-test.describe('Article Publishing and Editing', () => {
+test.describe('Article Lifecycle', () => {
 
-    test('create and publish a new article successfully', async ({ editorPage, page }) => {
+    test('create and publish new article', async ({ editorPage, page }) => {
 
         await editorPage.goto();
 
@@ -12,7 +12,6 @@ test.describe('Article Publishing and Editing', () => {
         const articleBody = 'Main body content written in markdown format.';
         const tags = ['playwright', 'typescript'];
 
-        // Convert title to slug format (e.g., "test-article-1724597000")
         const expectedSlugPrefix = articleTitle.toLowerCase().replace(/\s+/g, '-');
 
         await editorPage.createArticle(
@@ -24,62 +23,87 @@ test.describe('Article Publishing and Editing', () => {
 
         await expect(page).toHaveURL(new RegExp(`/article/${expectedSlugPrefix}`));
         await expect(page.getByRole('heading', { name: articleTitle })).toBeVisible();
+        await expect(page.getByText(articleBody)).toBeVisible();
+
+        for (const tag of tags) {
+            await expect(page.getByText(tag, { exact: true })).toBeVisible();
+        }
     });
 
-    test('edit an existing article title successfully', async ({ editorPage, page }) => {
-
-        await editorPage.goto();
+    test('edit existing article title', async ({ authenticatedPage, request, editorPage }) => {
 
         const timestamp = Date.now();
         const initialTitle = `Original Article ${timestamp}`;
         const updatedTitle = `Updated Article ${timestamp}`;
 
-        await editorPage.createArticle(
-            initialTitle,
-            'Original description',
-            'Original body content'
-        );
+        const token = await authenticatedPage.evaluate(() => localStorage.getItem('jwtToken'));
 
-        await expect(page.getByRole('heading', { name: initialTitle })).toBeVisible();
+        const response = await request.post('https://api.realworld.show/api/articles', {
+            headers: {
+                'Authorization': `Token ${token}`,
+                'Content-Type': 'application/json',
+            },
+            data: {
+                article: {
+                    title: initialTitle,
+                    description: 'Original description for edit test.',
+                    body: 'Original body content.',
+                    tagList: ['editing'],
+                },
+            },
+        });
+        expect(response.ok()).toBeTruthy();
+        const { article } = await response.json();
 
-        await page.getByRole('link', { name: 'Edit Article' }).first().click();
+        await authenticatedPage.goto(`/editor/${article.slug}`);
 
-        // Wait for the edit form to be populated with existing data
         await expect(editorPage.titleInput).toHaveValue(initialTitle);
-
         await editorPage.titleInput.fill(updatedTitle);
         await editorPage.publishButton.click();
 
         const expectedSlugPrefix = updatedTitle.toLowerCase().replace(/\s+/g, '-');
-
-        await expect(page).toHaveURL(new RegExp(`/article/${expectedSlugPrefix}`));
-        await expect(page.getByRole('heading', { name: updatedTitle })).toBeVisible();
+        await expect(authenticatedPage).toHaveURL(new RegExp(`/article/${expectedSlugPrefix}`));
+        await expect(authenticatedPage.getByRole('heading', { name: updatedTitle })).toBeVisible();
     });
 
-    test('delete an existing article successfully', async ({ editorPage, page }) => {
-
-        await editorPage.goto();
+    test('delete existing article', async ({ authenticatedPage, request }) => {
 
         const timestamp = Date.now();
         const articleTitle = `Delete Article ${timestamp}`;
 
-        await editorPage.createArticle(
-            articleTitle,
-            'Description for deletion test',
-            'Body content for deletion test'
-        );
-        await expect(page.getByRole('heading', { name: articleTitle })).toBeVisible();
+        const token = await authenticatedPage.evaluate(() => localStorage.getItem('jwtToken'));
 
-        await page.getByRole('button', { name: 'Delete Article' }).first().click();
+        const response = await request.post('https://api.realworld.show/api/articles', {
+            headers: {
+                'Authorization': `Token ${token}`,
+                'Content-Type': 'application/json',
+            },
+            data: {
+                article: {
+                    title: articleTitle,
+                    description: 'Description for deletion test',
+                    body: 'Body content for deletion test',
+                    tagList: ['delete'],
+                },
+            },
+        });
+        expect(response.ok()).toBeTruthy();
+        const { article } = await response.json();
 
-        await expect(page).toHaveURL('/');
+        await authenticatedPage.goto(`/article/${article.slug}`);
+        await expect(authenticatedPage.getByRole('heading', { name: articleTitle })).toBeVisible();
+
+        await authenticatedPage.getByRole('button', { name: 'Delete Article' }).first().click();
+        await expect(authenticatedPage).toHaveURL('/');
+
+        await authenticatedPage.goto(`/article/${article.slug}`);
+        await expect(authenticatedPage.getByRole('heading', { name: articleTitle })).not.toBeVisible();
     });
 
-    test('displays validation errors when submitting an empty form', async ({ editorPage }) => {
+    test('display validation errors on empty form submission', async ({ editorPage }) => {
 
         await editorPage.goto();
 
-        // Attempt to publish without filling required fields
         await editorPage.publishButton.click();
 
         await expect(editorPage.errorMessages).toBeVisible();
