@@ -2,14 +2,17 @@ import { test as base, expect, Page } from '@playwright/test';
 import { RegisterPage } from '../pages/register.page';
 import { EditorPage } from '../pages/editor.page';
 import { ArticlePage } from '../pages/article.page';
+import { LoginPage } from '../pages/login.page';
 
-type AuthFixtures = {
+type AppFixtures = {
     authenticatedPage: Page;
+    registerPage: RegisterPage;
+    loginPage: LoginPage;
     editorPage: EditorPage;
     articlePage: ArticlePage;
 };
 
-export const test = base.extend<AuthFixtures>({
+export const test = base.extend<AppFixtures>({
     // Base authenticated page fixture: registers a fresh user and yields the authenticated page context
     authenticatedPage: async ({ page, request }, use) => {
         const timestamp = Date.now();
@@ -34,6 +37,14 @@ export const test = base.extend<AuthFixtures>({
 
         await page.goto('/');
         await use(page);
+    },
+
+    registerPage: async ({ page }, use) => {
+        await use(new RegisterPage(page));
+    },
+
+    loginPage: async ({ page }, use) => {
+        await use(new LoginPage(page));
     },
 
     editorPage: async ({ authenticatedPage }, use) => {

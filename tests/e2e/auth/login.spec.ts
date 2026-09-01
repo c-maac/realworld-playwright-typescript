@@ -1,35 +1,25 @@
-import { test, expect } from '@playwright/test';
-import { LoginPage } from '../../../src/pages/login.page';
-import { RegisterPage } from '../../../src/pages/register.page';
+import { test, expect } from '../../../src/fixtures/fixtures';
 
 test.describe('Login Flow', () => {
-    let loginPage: LoginPage;
 
-    test.beforeEach(async ({ page }) => {
-        loginPage = new LoginPage(page);
-    });
-
-    test('log in successfully with valid credentials and redirect to home feed', async ({ page }) => {
+    test('log in successfully with valid credentials and redirect to home feed', async ({ page, request, loginPage }) => {
 
         const timestamp = Date.now();
         const uniqueUsername = `user_${timestamp}`;
         const uniqueEmail = `user_${timestamp}@etest.com`;
         const password = 'Password123!';
 
-        // API pre-seeding is bypassed here due to backend constraints/headers.
-        // We register a fresh user via the UI to establish valid credentials in the database before testing login.
-        const registerPage = new RegisterPage(page);
-        await registerPage.goto();
-        await registerPage.register(uniqueUsername, uniqueEmail, password);
-        await expect(page.getByRole('link', { name: uniqueUsername })).toBeVisible();
+        const response = await request.post('https://api.realworld.show/api/users', {
+            data: {
+                user: {
+                    username: uniqueUsername,
+                    email: uniqueEmail,
+                    password: password,
+                },
+            },
+        });
+        expect(response.ok()).toBeTruthy();
 
-
-        // Programmatically clear session storage to log out.
-        // This decouples the login test from the Settings/Logout UI, ensuring that an issue 
-        // with the logout feature won't cause false failures in the login test suite.
-        await page.evaluate(() => localStorage.clear());
-        await page.goto('/');
-        await expect(page.getByRole('link', { name: 'Sign in' })).toBeVisible();
 
         await loginPage.goto();
         await loginPage.login(uniqueEmail, password);
@@ -38,7 +28,7 @@ test.describe('Login Flow', () => {
         await expect(page.getByRole('link', { name: uniqueUsername })).toBeVisible();
     });
 
-    test('display validation error when logging in with invalid credentials', async ({ page }) => {
+    test('display validation error when logging in with invalid credentials', async ({ page, loginPage }) => {
 
         await loginPage.goto();
         await loginPage.login('nonexistent_user@test.com', 'WrongPassword123!');
