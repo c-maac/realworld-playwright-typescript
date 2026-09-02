@@ -1,0 +1,14 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "CommonJS",
+    "types": ["node", "@playwright/test"],
+    "allowJs": true,
+    "strict": true
+  },
+  "include": [
+    "tests/**/*.ts",
+    "src/**/*.ts",
+    "playwright.config.ts"
+  ]
+}
