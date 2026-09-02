@@ -1,5 +1,25 @@
 import { test, expect } from '../../../src/fixtures/fixtures';
 
+// Keeping this local helper simple for edit/delete tests.
+// TODO: Extract to custom fixture if additional specs need API article seeding.
+async function seedArticleViaApi(request: any, page: any, articleData: { title: string; description: string; body: string; tagList: string[] }) {
+    const token = await page.evaluate(() => localStorage.getItem('jwtToken'));
+    const response = await request.post('https://api.realworld.show/api/articles', {
+        headers: {
+            'Authorization': `Token ${token}`,
+            'Content-Type': 'application/json',
+        },
+        data: { article: articleData },
+    });
+    expect(response.ok()).toBeTruthy();
+    const { article } = await response.json();
+    return article;
+}
+
+// Local helper for URL slug matching.
+// TODO: Move to shared utility module if used across multiple spec files.
+const toSlug = (title: string) => new RegExp(`/article/${title.toLowerCase().replace(/\s+/g, '-')}`);
+
 test.describe('Article Lifecycle', () => {
 
     test('create and publish new article', async ({ editorPage, page }) => {
@@ -12,8 +32,6 @@ test.describe('Article Lifecycle', () => {
         const articleBody = 'Main body content written in markdown format.';
         const tags = ['playwright', 'typescript'];
 
-        const expectedSlugPrefix = articleTitle.toLowerCase().replace(/\s+/g, '-');
-
         await editorPage.createArticle(
             articleTitle,
             articleDescription,
@@ -21,7 +39,7 @@ test.describe('Article Lifecycle', () => {
             tags
         );
 
-        await expect(page).toHaveURL(new RegExp(`/article/${expectedSlugPrefix}`));
+        await expect(page).toHaveURL(toSlug(articleTitle));
         await expect(page.getByRole('heading', { name: articleTitle })).toBeVisible();
         await expect(page.getByText(articleBody)).toBeVisible();
 
@@ -36,24 +54,12 @@ test.describe('Article Lifecycle', () => {
         const initialTitle = `Original Article ${timestamp}`;
         const updatedTitle = `Updated Article ${timestamp}`;
 
-        const token = await authenticatedPage.evaluate(() => localStorage.getItem('jwtToken'));
-
-        const response = await request.post('https://api.realworld.show/api/articles', {
-            headers: {
-                'Authorization': `Token ${token}`,
-                'Content-Type': 'application/json',
-            },
-            data: {
-                article: {
-                    title: initialTitle,
-                    description: 'Original description for edit test.',
-                    body: 'Original body content.',
-                    tagList: ['editing'],
-                },
-            },
+        const article = await seedArticleViaApi(request, authenticatedPage, {
+            title: initialTitle,
+            description: 'Original description for edit test.',
+            body: 'Original body content for edit test.',
+            tagList: ['editing'],
         });
-        expect(response.ok()).toBeTruthy();
-        const { article } = await response.json();
 
         await authenticatedPage.goto(`/editor/${article.slug}`);
 
@@ -61,8 +67,7 @@ test.describe('Article Lifecycle', () => {
         await editorPage.titleInput.fill(updatedTitle);
         await editorPage.publishButton.click();
 
-        const expectedSlugPrefix = updatedTitle.toLowerCase().replace(/\s+/g, '-');
-        await expect(authenticatedPage).toHaveURL(new RegExp(`/article/${expectedSlugPrefix}`));
+        await expect(authenticatedPage).toHaveURL(toSlug(updatedTitle));
         await expect(authenticatedPage.getByRole('heading', { name: updatedTitle })).toBeVisible();
     });
 
@@ -71,24 +76,12 @@ test.describe('Article Lifecycle', () => {
         const timestamp = Date.now();
         const articleTitle = `Delete Article ${timestamp}`;
 
-        const token = await authenticatedPage.evaluate(() => localStorage.getItem('jwtToken'));
-
-        const response = await request.post('https://api.realworld.show/api/articles', {
-            headers: {
-                'Authorization': `Token ${token}`,
-                'Content-Type': 'application/json',
-            },
-            data: {
-                article: {
-                    title: articleTitle,
-                    description: 'Description for deletion test',
-                    body: 'Body content for deletion test',
-                    tagList: ['delete'],
-                },
-            },
+        const article = await seedArticleViaApi(request, authenticatedPage, {
+            title: articleTitle,
+            description: 'Description for deletion test',
+            body: 'Body content for deletion test',
+            tagList: ['delete'],
         });
-        expect(response.ok()).toBeTruthy();
-        const { article } = await response.json();
 
         await authenticatedPage.goto(`/article/${article.slug}`);
         await expect(authenticatedPage.getByRole('heading', { name: articleTitle })).toBeVisible();
