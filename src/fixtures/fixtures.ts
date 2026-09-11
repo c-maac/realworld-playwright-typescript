@@ -3,6 +3,7 @@ import { RegisterPage } from '../pages/register.page';
 import { EditorPage } from '../pages/editor.page';
 import { ArticlePage } from '../pages/article.page';
 import { LoginPage } from '../pages/login.page';
+import { HomePage } from '../pages/home.page';
 
 type AppFixtures = {
     authenticatedPage: Page;
@@ -10,6 +11,8 @@ type AppFixtures = {
     loginPage: LoginPage;
     editorPage: EditorPage;
     articlePage: ArticlePage;
+    publicHomePage: HomePage;
+    authenticatedHomePage: HomePage;
 };
 
 export const test = base.extend<AppFixtures>({
@@ -53,6 +56,14 @@ export const test = base.extend<AppFixtures>({
 
     articlePage: async ({ authenticatedPage }, use) => {
         await use(new ArticlePage(authenticatedPage));
+    },
+
+    publicHomePage: async ({ page }, use) => {
+        await use(new HomePage(page));
+    },
+
+    authenticatedHomePage: async ({ authenticatedPage }, use) => {
+        await use(new HomePage(authenticatedPage));
     },
 });
 
