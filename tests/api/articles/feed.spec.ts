@@ -1,56 +1,9 @@
 import { test, expect } from '@playwright/test';
 import { AuthSession, registerUser, getAuthHeader } from '../../../src/helpers/api-helpers';
-
-interface Article {
-    slug: string;
-    title: string;
-    description: string;
-    tagList: string[];
-    createdAt: string;
-    updatedAt: string;
-    favorited: boolean;
-    favoritesCount: number;
-    author: {
-        username: string;
-        bio: string | null;
-        image: string | null;
-        following: boolean;
-    };
-}
-
-interface FeedResponseBody {
-    articles: Article[];
-    articlesCount: number;
-}
-
-const stringOrNull = {
-    asymmetricMatch: (actual: unknown) => typeof actual === 'string' || actual === null,
-    toString: () => 'String | null',
-};
-
-const isoDateString = {
-    asymmetricMatch: (actual: unknown) => typeof actual === 'string' && !isNaN(Date.parse(actual)),
-    toString: () => 'Valid ISO Date String',
-};
-
-const assertFeedItemSchema = (article: Article) => {
-    expect(article).toStrictEqual({
-        slug: expect.any(String),
-        title: expect.any(String),
-        description: expect.any(String),
-        tagList: expect.arrayContaining([expect.any(String)]),
-        createdAt: isoDateString,
-        updatedAt: isoDateString,
-        favorited: expect.any(Boolean),
-        favoritesCount: expect.any(Number),
-        author: {
-            username: expect.any(String),
-            bio: stringOrNull,
-            image: stringOrNull,
-            following: true, // Should always be true for items in user's personalized feed
-        },
-    });
-};
+import {
+    assertMultipleArticlesSchema,
+    assertErrorSchema,
+} from '../../../src/helpers/schema-helpers';
 
 test.describe('Articles Feed Domain (/api/articles/feed)', () => {
     test.use({ baseURL: 'https://api.realworld.show' });
@@ -61,7 +14,6 @@ test.describe('Articles Feed Domain (/api/articles/feed)', () => {
     let userToken: string;
 
     test.beforeAll(async ({ request }) => {
-        
         const session: AuthSession = await registerUser(request);
         userToken = session.token;
     });
@@ -74,9 +26,8 @@ test.describe('Articles Feed Domain (/api/articles/feed)', () => {
                 const res = await request.get('/api/articles/feed', { headers: authHeader });
                 expect(res.status()).toBe(200);
 
-                const body = (await res.json()) as FeedResponseBody;
-                expect(body).toHaveProperty('articles');
-                expect(body).toHaveProperty('articlesCount');
+                const body = assertMultipleArticlesSchema(await res.json());
+
                 expect(body.articles).toEqual([]);
                 expect(body.articlesCount).toBe(0);
             });
@@ -97,12 +48,15 @@ test.describe('Articles Feed Domain (/api/articles/feed)', () => {
                 const res = await request.get('/api/articles/feed', { headers: authHeader });
                 expect(res.status()).toBe(200);
 
-                const body = (await res.json()) as FeedResponseBody;
+                const body = assertMultipleArticlesSchema(await res.json());
+
                 expect(body.articles.length).toBeGreaterThan(0);
                 expect(body.articlesCount).toBeGreaterThan(0);
 
                 body.articles.forEach((article) => {
-                    assertFeedItemSchema(article);
+                    // all items in user's personalized feed 
+                    // must be from followed users
+                    expect(article.author.following).toBe(true);
                     expect([TARGET_AUTHOR_1, TARGET_AUTHOR_2]).toContain(article.author.username);
                 });
             });
@@ -115,11 +69,9 @@ test.describe('Articles Feed Domain (/api/articles/feed)', () => {
                 });
                 expect(res.status()).toBe(200);
 
-                const body = (await res.json()) as FeedResponseBody;
+                const body = assertMultipleArticlesSchema(await res.json());
+
                 expect(body.articles.length).toBeLessThanOrEqual(limit);
-                if (body.articles.length > 0) {
-                    assertFeedItemSchema(body.articles[0]);
-                }
             });
         });
     });
@@ -128,6 +80,11 @@ test.describe('Articles Feed Domain (/api/articles/feed)', () => {
         test('returns 401 when accessing feed without authorization', async ({ request }) => {
             const res = await request.get('/api/articles/feed');
             expect(res.status()).toBe(401);
+
+            const body = assertErrorSchema(await res.json());
+
+            expect(body.errors).toHaveProperty('token');
+            expect(body.errors.token).toContain('is missing');
         });
     });
 });

@@ -1,5 +1,9 @@
 import { test, expect } from '@playwright/test';
 import { AuthSession, registerUser } from '../../../src/helpers/api-helpers';
+import {
+    assertUserSchema,
+    assertErrorSchema,
+} from '../../../src/helpers/schema-helpers';
 
 test.describe('POST /api/users/login', () => {
     test.use({ baseURL: 'https://api.realworld.show' });
@@ -22,18 +26,13 @@ test.describe('POST /api/users/login', () => {
 
         expect(response.status()).toBe(200);
 
-        const body = await response.json();
-        expect(body).toHaveProperty('user');
-        expect(typeof body.user.token).toBe('string');
-        expect(body.user.token).not.toBe('');
+        const body = assertUserSchema(await response.json());
 
-        expect(body.user).toStrictEqual({
-            username: session.user.username,
-            email: session.user.email,
-            bio: null,
-            image: null,
-            token: body.user.token,
-        });
+        expect(body.user.username).toBe(session.user.username);
+        expect(body.user.email).toBe(session.user.email);
+        expect(body.user.token.length).toBeGreaterThan(0);
+        expect(body.user.bio).toBeNull();
+        expect(body.user.image).toBeNull();
     });
 
     test('returns 401 on invalid password', async ({ request }) => {
@@ -48,7 +47,9 @@ test.describe('POST /api/users/login', () => {
 
         expect(response.status()).toBe(401);
 
-        const body = await response.json();
-        expect(body).toHaveProperty('errors');
+        const body = assertErrorSchema(await response.json());
+
+        expect(body.errors).toHaveProperty('credentials');
+        expect(body.errors.credentials).toContain('invalid');
     });
 });

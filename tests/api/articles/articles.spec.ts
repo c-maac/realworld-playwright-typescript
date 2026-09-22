@@ -1,99 +1,10 @@
 import { test, expect } from '@playwright/test';
 import { AuthSession, registerUser, getAuthHeader } from '../../../src/helpers/api-helpers';
-
-// TypeScript Contract Interfaces
-interface Author {
-    username: string;
-    bio: string | null;
-    image: string | null;
-    following: boolean;
-}
-
-interface Article {
-    slug: string;
-    title: string;
-    description: string;
-    body: string;
-    tagList: string[];
-    createdAt: string;
-    updatedAt: string;
-    favorited: boolean;
-    favoritesCount: number;
-    author: Author;
-}
-
-interface SingleArticleResponseBody {
-    article: Article;
-}
-
-interface MultipleArticlesResponseBody {
-    articles: Article[];
-    articlesCount: number;
-}
-
-// Asymmetric matchers for dynamic runtime contract validation
-const stringOrNull = {
-    asymmetricMatch: (actual: unknown) => typeof actual === 'string' || actual === null,
-    toString: () => 'String | null',
-};
-
-const isoDateString = {
-    asymmetricMatch: (actual: unknown) => typeof actual === 'string' && !isNaN(Date.parse(actual)),
-    toString: () => 'Valid ISO Date String',
-};
-
-// Schema validation helper for single article responses
-const assertArticleSchema = (
-    article: Article,
-    expected: {
-        slug?: string;
-        title: string;
-        description: string;
-        body: string;
-        tagList: string[];
-        favorited?: boolean;
-        favoritesCount?: number;
-        authorUsername: string;
-        followingAuthor?: boolean;
-    }
-) => {
-    expect(article).toStrictEqual({
-        slug: expected.slug ?? expect.any(String),
-        title: expected.title,
-        description: expected.description,
-        body: expected.body,
-        tagList: expect.arrayContaining(expected.tagList),
-        createdAt: isoDateString,
-        updatedAt: isoDateString,
-        favorited: expected.favorited ?? false,
-        favoritesCount: expected.favoritesCount ?? 0,
-        author: {
-            username: expected.authorUsername,
-            bio: stringOrNull,
-            image: stringOrNull,
-            following: expected.followingAuthor ?? false,
-        },
-    });
-};
-
-const assertArticleFeedItemSchema = (article: Article) => {
-    expect(article).toStrictEqual({
-        slug: expect.any(String),
-        title: expect.any(String),
-        description: expect.any(String),
-        tagList: expect.arrayContaining([expect.any(String)]),
-        createdAt: isoDateString,
-        updatedAt: isoDateString,
-        favorited: expect.any(Boolean),
-        favoritesCount: expect.any(Number),
-        author: {
-            username: expect.any(String),
-            bio: stringOrNull,
-            image: stringOrNull,
-            following: expect.any(Boolean),
-        },
-    });
-};
+import {
+    assertArticleSchema,
+    assertMultipleArticlesSchema,
+    assertErrorSchema,
+} from '../../../src/helpers/schema-helpers';
 
 test.describe('Article Domain (/api/articles)', () => {
     test.use({ baseURL: 'https://api.realworld.show' });
@@ -112,29 +23,24 @@ test.describe('Article Domain (/api/articles)', () => {
             const response = await request.get('/api/articles');
             expect(response.status()).toBe(200);
 
-            const body = (await response.json()) as MultipleArticlesResponseBody;
-
-            // Validate outer wrapper contract
-            expect(body).toHaveProperty('articles');
-            expect(body).toHaveProperty('articlesCount');
-            expect(Array.isArray(body.articles)).toBe(true);
-            expect(typeof body.articlesCount).toBe('number');
-
-            // Validate schema structure for every item in the feed array
-            body.articles.forEach((article) => assertArticleFeedItemSchema(article));
+            const body = assertMultipleArticlesSchema(await response.json());
+            // Default limit check
+            expect(body.articles.length).toBeLessThanOrEqual(20);
+            // For paginated lists: total DB records >= items returned in this page
+            expect(body.articlesCount).toBeGreaterThanOrEqual(body.articles.length);
         });
 
+        //TODO: There are other query params to test!
         test('fetches articles with pagination and filtering query params', async ({ request }) => {
             const response = await request.get('/api/articles', {
                 params: { limit: 5, offset: 0, tag: 'javascript' },
             });
             expect(response.status()).toBe(200);
 
-            const body = (await response.json()) as MultipleArticlesResponseBody;
-            expect(body.articles.length).toBeLessThanOrEqual(5);
+            const body = assertMultipleArticlesSchema(await response.json());
 
+            expect(body.articles.length).toBeLessThanOrEqual(5);
             body.articles.forEach((article) => {
-                assertArticleFeedItemSchema(article);
                 expect(article.tagList).toContain('javascript');
             });
         });
@@ -167,17 +73,16 @@ test.describe('Article Domain (/api/articles)', () => {
                 });
                 expect(res.status()).toBe(201);
 
-                const body = (await res.json()) as SingleArticleResponseBody;
+                const body = assertArticleSchema(await res.json());
                 articleSlug = body.article.slug;
 
-                assertArticleSchema(body.article, {
-                    slug: articleSlug,
-                    title: initialPayload.title,
-                    description: initialPayload.description,
-                    body: initialPayload.body,
-                    tagList: initialPayload.tagList,
-                    authorUsername,
-                });
+                expect(body.article.title).toBe(initialPayload.title);
+                expect(body.article.description).toBe(initialPayload.description);
+                expect(body.article.body).toBe(initialPayload.body);
+                expect(body.article.tagList).toEqual(expect.arrayContaining(initialPayload.tagList));
+                expect(body.article.author.username).toBe(authorUsername);
+                expect(body.article.favorited).toBe(false);
+                expect(body.article.favoritesCount).toBe(0);
             });
 
             await test.step('fetches created article by slug', async () => {
@@ -186,15 +91,11 @@ test.describe('Article Domain (/api/articles)', () => {
                 });
                 expect(res.status()).toBe(200);
 
-                const body = (await res.json()) as SingleArticleResponseBody;
-                assertArticleSchema(body.article, {
-                    slug: articleSlug,
-                    title: initialPayload.title,
-                    description: initialPayload.description,
-                    body: initialPayload.body,
-                    tagList: initialPayload.tagList,
-                    authorUsername,
-                });
+                const body = assertArticleSchema(await res.json());
+
+                expect(body.article.slug).toBe(articleSlug);
+                expect(body.article.title).toBe(initialPayload.title);
+                expect(body.article.author.username).toBe(authorUsername);
             });
 
             await test.step('updates article title, description, and body', async () => {
@@ -204,17 +105,12 @@ test.describe('Article Domain (/api/articles)', () => {
                 });
                 expect(res.status()).toBe(200);
 
-                const body = (await res.json()) as SingleArticleResponseBody;
-                articleSlug = body.article.slug;
+                const body = assertArticleSchema(await res.json());
+                articleSlug = body.article.slug; // Title change regenerates the slug.
 
-                assertArticleSchema(body.article, {
-                    slug: articleSlug,
-                    title: updatedPayload.title,
-                    description: updatedPayload.description,
-                    body: updatedPayload.body,
-                    tagList: initialPayload.tagList,
-                    authorUsername,
-                });
+                expect(body.article.title).toBe(updatedPayload.title);
+                expect(body.article.description).toBe(updatedPayload.description);
+                expect(body.article.body).toBe(updatedPayload.body);
             });
 
             await test.step('deletes article by slug', async () => {
@@ -229,6 +125,10 @@ test.describe('Article Domain (/api/articles)', () => {
                     headers: authHeader,
                 });
                 expect(res.status()).toBe(404);
+
+                const body = assertErrorSchema(await res.json());
+                expect(body.errors).toHaveProperty('article');
+                expect(body.errors.article).toContain('not found');
             });
         });
     });
@@ -245,6 +145,9 @@ test.describe('Article Domain (/api/articles)', () => {
                 },
             });
             expect(response.status()).toBe(401);
+            const body = assertErrorSchema(await response.json());
+            expect(body.errors).toHaveProperty('token');
+            expect(body.errors.token).toContain('is missing');
         });
 
         test('returns 422 when creating article with missing required fields', async ({ request }) => {
@@ -258,8 +161,15 @@ test.describe('Article Domain (/api/articles)', () => {
             });
             expect(response.status()).toBe(422);
 
-            const body = await response.json();
-            expect(body).toHaveProperty('errors');
+            const body = assertErrorSchema(await response.json());
+
+            expect(body.errors).toHaveProperty('title');
+            expect(body.errors).toHaveProperty('description');
+            expect(body.errors).toHaveProperty('body');
+
+            expect(body.errors.title).toContain("can't be blank");
+            expect(body.errors.description).toContain("can't be blank");
+            expect(body.errors.body).toContain("can't be blank");
         });
 
         test('returns 404 for non-existent article slug', async ({ request }) => {
@@ -267,8 +177,9 @@ test.describe('Article Domain (/api/articles)', () => {
             const response = await request.get(`/api/articles/${nonExistentSlug}`);
             expect(response.status()).toBe(404);
 
-            const body = await response.json();
-            expect(body).toHaveProperty('errors');
+            const body = assertErrorSchema(await response.json());
+            expect(body.errors).toHaveProperty('article');
+            expect(body.errors.article).toContain('not found');
         });
     });
 });

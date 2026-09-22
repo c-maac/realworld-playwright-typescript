@@ -1,39 +1,12 @@
 import { test, expect } from '@playwright/test';
 import { AuthSession, registerUser, getAuthHeader } from '../../../src/helpers/api-helpers';
+import { assertErrorSchema, assertProfileSchema } from '../../../src/helpers/schema-helpers';
 
-interface Profile {
-    username: string;
-    bio: string | null;
-    image: string | null;
-    following: boolean;
-}
 
-interface ProfileResponseBody {
-    profile: Profile;
-}
-
-// Hardcoded pre-seeded target user guaranteed to exist on api.realworld.show
+// Hardcoded pre-seeded target user 
+// guaranteed to exist on api.realworld.show
 const TARGET_USERNAME = 'johndoe';
 
-// Asymmetric matcher for nullable string fields
-const stringOrNull = {
-    asymmetricMatch: (actual: unknown) => typeof actual === 'string' || actual === null,
-    toString: () => 'String | null',
-};
-
-// Schema assertion helper
-const assertProfileSchema = (
-    responseBody: ProfileResponseBody,
-    expectedFollowing: boolean
-) => {
-    expect(responseBody).toHaveProperty('profile');
-    expect(responseBody.profile).toStrictEqual({
-        username: TARGET_USERNAME,
-        bio: stringOrNull,
-        image: stringOrNull,
-        following: expectedFollowing,
-    });
-};
 
 test.describe('Profile Domain (/api/profiles/:username)', () => {
     test.use({ baseURL: 'https://api.realworld.show' });
@@ -49,7 +22,13 @@ test.describe('Profile Domain (/api/profiles/:username)', () => {
             const response = await request.get(`/api/profiles/${TARGET_USERNAME}`);
 
             expect(response.status()).toBe(200);
-            assertProfileSchema(await response.json(), false);
+
+            // 1. Contract / Schema Check
+            const body = assertProfileSchema(await response.json());
+
+            // 2. Explicit Business Logic Assertions
+            expect(body.profile.username).toBe(TARGET_USERNAME);
+            expect(body.profile.following).toBe(false);
         });
     });
 
@@ -60,25 +39,34 @@ test.describe('Profile Domain (/api/profiles/:username)', () => {
             await test.step('checks initial follow status', async () => {
                 const res = await request.get(`/api/profiles/${TARGET_USERNAME}`, { headers: authHeader });
                 expect(res.status()).toBe(200);
-                assertProfileSchema(await res.json() as ProfileResponseBody, false);
+                const body = assertProfileSchema(await res.json());
+                expect(body.profile.username).toBe(TARGET_USERNAME);
+                expect(body.profile.following).toBe(false);
             });
 
             await test.step('follows target user', async () => {
                 const res = await request.post(`/api/profiles/${TARGET_USERNAME}/follow`, { headers: authHeader });
                 expect(res.status()).toBe(200);
-                assertProfileSchema(await res.json() as ProfileResponseBody, true);
+                const body = assertProfileSchema(await res.json());
+                expect(body.profile.username).toBe(TARGET_USERNAME);
+                expect(body.profile.following).toBe(true);
+
             });
 
             await test.step('verifies follow status persisted', async () => {
                 const res = await request.get(`/api/profiles/${TARGET_USERNAME}`, { headers: authHeader });
                 expect(res.status()).toBe(200);
-                assertProfileSchema(await res.json() as ProfileResponseBody, true);
+                const body = assertProfileSchema(await res.json());
+                expect(body.profile.username).toBe(TARGET_USERNAME);
+                expect(body.profile.following).toBe(true);
             });
 
             await test.step('unfollows target user', async () => {
                 const res = await request.delete(`/api/profiles/${TARGET_USERNAME}/follow`, { headers: authHeader });
                 expect(res.status()).toBe(200);
-                assertProfileSchema(await res.json() as ProfileResponseBody, false);
+                const body = assertProfileSchema(await res.json());
+                expect(body.profile.username).toBe(TARGET_USERNAME);
+                expect(body.profile.following).toBe(false);
             });
         });
     });
@@ -89,8 +77,12 @@ test.describe('Profile Domain (/api/profiles/:username)', () => {
         test('returns 404 for non-existent profile', async ({ request }) => {
             const response = await request.get(`/api/profiles/${nonExistentUsername}`);
             expect(response.status()).toBe(404);
-            const body = await response.json();
+            // 1. Contract / Schema Integrity Check
+            const body = assertErrorSchema(await response.json());
+
+            // 2. Explicit Domain Key & Error Message Checks
             expect(body.errors).toHaveProperty('profile');
+            expect(body.errors.profile).toContain('not found');
         });
 
         test('returns 404 when following non-existent profile', async ({ request }) => {
@@ -98,8 +90,12 @@ test.describe('Profile Domain (/api/profiles/:username)', () => {
                 headers: getAuthHeader(userAToken),
             });
             expect(response.status()).toBe(404);
-            const body = await response.json();
+            // 1. Contract / Schema Integrity Check
+            const body = assertErrorSchema(await response.json());
+
+            // 2. Explicit Domain Key & Error Message Checks
             expect(body.errors).toHaveProperty('profile');
+            expect(body.errors.profile).toContain('not found');
         });
     });
 });

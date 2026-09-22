@@ -1,15 +1,5 @@
 import { test, expect } from '@playwright/test';
-
-interface TagsResponseBody {
-    tags: string[];
-}
-
-const assertTagsSchema = (body: unknown): body is TagsResponseBody => {
-    expect(body).toStrictEqual({
-        tags: expect.arrayContaining([expect.any(String)]),
-    });
-    return true;
-};
+import { assertTagsSchema } from '../../../src/helpers/schema-helpers';
 
 test.describe('Tags Domain (/api/tags)', () => {
     test.use({ baseURL: 'https://api.realworld.show' });
@@ -18,14 +8,14 @@ test.describe('Tags Domain (/api/tags)', () => {
         const res = await request.get('/api/tags');
         expect(res.status()).toBe(200);
 
-        const body = (await res.json()) as TagsResponseBody;
-
-        assertTagsSchema(body);
-        expect(Array.isArray(body.tags)).toBe(true);
+        const body = assertTagsSchema(await res.json());
         expect(body.tags.length).toBeGreaterThan(0);
 
+        // Ensure tags are unique and sanitized non-empty strings
+        const uniqueTags = new Set(body.tags);
+        expect(uniqueTags.size).toBe(body.tags.length);
+
         body.tags.forEach((tag) => {
-            expect(typeof tag).toBe('string');
             expect(tag.trim().length).toBeGreaterThan(0);
         });
     });
@@ -35,5 +25,6 @@ test.describe('Tags Domain (/api/tags)', () => {
             headers: {},
         });
         expect(res.status()).toBe(200);
+        assertTagsSchema(await res.json());
     });
 });

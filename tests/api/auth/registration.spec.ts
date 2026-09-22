@@ -1,6 +1,10 @@
 import { test, expect } from '@playwright/test';
 import { createRandomUser } from '../../../src/helpers/user-factory';
 import { registerUser } from '../../../src/helpers/api-helpers';
+import {
+    assertUserSchema,
+    assertErrorSchema,
+} from '../../../src/helpers/schema-helpers';
 
 test.describe('POST /api/users', () => {
     test.use({ baseURL: 'https://api.realworld.show' });
@@ -14,18 +18,13 @@ test.describe('POST /api/users', () => {
 
         expect(response.status()).toBe(201);
 
-        const body = await response.json();
-        expect(body).toHaveProperty('user');
-        expect(typeof body.user.token).toBe('string');
-        expect(body.user.token).not.toBe('');
+        const body = assertUserSchema(await response.json());
 
-        expect(body.user).toStrictEqual({
-            username: newUser.username,
-            email: newUser.email.toLowerCase(),
-            bio: null,
-            image: null,
-            token: body.user.token,
-        });
+        expect(body.user.username).toBe(newUser.username);
+        expect(body.user.email).toBe(newUser.email.toLowerCase());
+        expect(body.user.token.length).toBeGreaterThan(0);
+        expect(body.user.bio).toBeNull();
+        expect(body.user.image).toBeNull();
     });
 
     test.describe('Input Validation', () => {
@@ -33,17 +32,28 @@ test.describe('POST /api/users', () => {
             {
                 name: 'missing username and password',
                 payload: { email: `user_${Date.now()}@test.com` },
-                expectedErrors: ['username', 'password'],
+                expectedErrors: {
+                    username: "can't be blank",
+                    password: "can't be blank",
+                },
             },
             {
                 name: 'empty string fields',
                 payload: { username: '', email: '', password: '' },
-                expectedErrors: ['username', 'email', 'password'],
+                expectedErrors: {
+                    username: "can't be blank",
+                    email: "can't be blank",
+                    password: "can't be blank",
+                },
             },
             {
                 name: 'null value fields',
                 payload: { username: null, email: null, password: null },
-                expectedErrors: ['username', 'email', 'password'],
+                expectedErrors: {
+                    username: "can't be blank",
+                    email: "can't be blank",
+                    password: "can't be blank",
+                },
             },
         ];
 
@@ -55,9 +65,11 @@ test.describe('POST /api/users', () => {
 
                 expect(response.status()).toBe(422);
 
-                const body = await response.json();
-                for (const field of expectedErrors) {
+                const body = assertErrorSchema(await response.json());
+
+                for (const [field, expectedMessage] of Object.entries(expectedErrors)) {
                     expect(body.errors).toHaveProperty(field);
+                    expect(body.errors[field]).toContain(expectedMessage);
                 }
             });
         }
@@ -69,11 +81,22 @@ test.describe('POST /api/users', () => {
         });
 
         expect(response.status()).toBe(422);
-        const body = await response.json();
-        expect(body).toHaveProperty('errors');
+
+        const body = assertErrorSchema(await response.json());
+
+        const expectedErrors = {
+            username: "can't be blank",
+            email: "can't be blank",
+            password: "can't be blank",
+        };
+
+        for (const [field, expectedMessage] of Object.entries(expectedErrors)) {
+            expect(body.errors).toHaveProperty(field);
+            expect(body.errors[field]).toContain(expectedMessage);
+        }
     });
 
-    //TODO: This app acts weird on duplicate email resgistration!
+    // TODO: App acts weird on duplicate email registration!
     test.skip('returns 422 on duplicate email', async ({ request }) => {
         const existingSession = await registerUser(request);
 
@@ -88,10 +111,8 @@ test.describe('POST /api/users', () => {
         });
 
         expect(response.status()).toBe(422);
-        const body = await response.json();
+        const body = assertErrorSchema(await response.json());
+
         expect(body.errors).toHaveProperty('email');
     });
-
-
-
 });

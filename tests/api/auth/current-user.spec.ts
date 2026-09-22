@@ -1,7 +1,11 @@
 import { test, expect } from '@playwright/test';
-import { AuthSession, registerUser } from '../../../src/helpers/api-helpers';
+import { AuthSession, registerUser, getAuthHeader } from '../../../src/helpers/api-helpers';
+import {
+    assertUserSchema,
+    assertErrorSchema,
+} from '../../../src/helpers/schema-helpers';
 
-test.describe('User Profile', () => {
+test.describe('User Profile (/api/user)', () => {
     test.use({ baseURL: 'https://api.realworld.show' });
     test.describe.configure({ mode: 'serial' });
 
@@ -14,23 +18,18 @@ test.describe('User Profile', () => {
     test.describe('GET /api/user', () => {
         test('retrieves current authenticated user', async ({ request }) => {
             const response = await request.get('/api/user', {
-                headers: { Authorization: `Token ${session.token}` },
+                headers: getAuthHeader(session.token),
             });
 
             expect(response.status()).toBe(200);
 
-            const body = await response.json();
-            expect(body).toHaveProperty('user');
-            expect(typeof body.user.token).toBe('string');
-            expect(body.user.token).not.toBe('');
+            const body = assertUserSchema(await response.json());
 
-            expect(body.user).toStrictEqual({
-                username: session.user.username,
-                email: session.user.email,
-                bio: null,
-                image: null,
-                token: body.user.token,
-            });
+            expect(body.user.username).toBe(session.user.username);
+            expect(body.user.email).toBe(session.user.email);
+            expect(body.user.token.length).toBeGreaterThan(0);
+            expect(body.user.bio).toBeNull();
+            expect(body.user.image).toBeNull();
         });
 
         test('returns 401 when token is missing', async ({ request }) => {
@@ -38,8 +37,10 @@ test.describe('User Profile', () => {
 
             expect(response.status()).toBe(401);
 
-            const body = await response.json();
+            const body = assertErrorSchema(await response.json());
+
             expect(body.errors).toHaveProperty('token');
+            expect(body.errors.token).toContain('is missing');
         });
 
         test('returns 401 on invalid token', async ({ request }) => {
@@ -49,34 +50,43 @@ test.describe('User Profile', () => {
 
             expect(response.status()).toBe(401);
 
-            const body = await response.json();
+            const body = assertErrorSchema(await response.json());
+
             expect(body.errors).toHaveProperty('token');
+            expect(body.errors.token).toContain('is missing');
         });
     });
 
     test.describe('PUT /api/user', () => {
-
-        // TODO: Should we verify again by requesting current user and see bio update is persisted.
-        test('updates user bio', async ({ request }) => {
+        test('updates user bio and persists changes', async ({ request }) => {
+            const authHeader = getAuthHeader(session.token);
             const updatedBio = `Updated Bio - ${Date.now()}`;
 
-            const response = await request.put('/api/user', {
-                headers: { Authorization: `Token ${session.token}` },
-                data: { user: { bio: updatedBio } },
+            await test.step('updates user bio via PUT', async () => {
+                const response = await request.put('/api/user', {
+                    headers: authHeader,
+                    data: { user: { bio: updatedBio } },
+                });
+
+                expect(response.status()).toBe(200);
+
+                const body = assertUserSchema(await response.json());
+
+                expect(body.user.username).toBe(session.user.username);
+                expect(body.user.email).toBe(session.user.email);
+                expect(body.user.bio).toBe(updatedBio);
             });
 
-            expect(response.status()).toBe(200);
+            await test.step('verifies bio update is persisted via GET', async () => {
+                const response = await request.get('/api/user', {
+                    headers: authHeader,
+                });
 
-            const body = await response.json();
-            expect(body).toHaveProperty('user');
-            expect(typeof body.user.token).toBe('string');
+                expect(response.status()).toBe(200);
 
-            expect(body.user).toStrictEqual({
-                username: session.user.username,
-                email: session.user.email,
-                bio: updatedBio,
-                image: null,
-                token: body.user.token,
+                const body = assertUserSchema(await response.json());
+
+                expect(body.user.bio).toBe(updatedBio);
             });
         });
     });

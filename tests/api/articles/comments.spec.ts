@@ -1,71 +1,29 @@
 import { test, expect } from '@playwright/test';
 import { AuthSession, registerUser, getAuthHeader } from '../../../src/helpers/api-helpers';
-
-interface Comment {
-    id: number;
-    createdAt: string;
-    updatedAt: string;
-    body: string;
-    author: {
-        username: string;
-        bio: string | null;
-        image: string | null;
-        following: boolean;
-    };
-}
-
-interface SingleCommentResponseBody {
-    comment: Comment;
-}
-
-interface MultipleCommentsResponseBody {
-    comments: Comment[];
-}
-
-const stringOrNull = {
-    asymmetricMatch: (actual: unknown) => typeof actual === 'string' || actual === null,
-    toString: () => 'String | null',
-};
-
-const isoDateString = {
-    asymmetricMatch: (actual: unknown) => typeof actual === 'string' && !isNaN(Date.parse(actual)),
-    toString: () => 'Valid ISO Date String',
-};
-
-const assertCommentSchema = (comment: Comment, expectedBody?: string) => {
-    expect(comment).toStrictEqual({
-        id: expect.any(Number),
-        createdAt: isoDateString,
-        updatedAt: isoDateString,
-        body: expectedBody ? expectedBody : expect.any(String),
-        author: {
-            username: expect.any(String),
-            bio: stringOrNull,
-            image: stringOrNull,
-            following: expect.any(Boolean),
-        },
-    });
-};
+import {
+    assertCommentSchema,
+    assertMultipleCommentsSchema,
+    assertErrorSchema,
+} from '../../../src/helpers/schema-helpers';
 
 test.describe('Comments Domain (/api/articles/:slug/comments)', () => {
     test.use({ baseURL: 'https://api.realworld.show' });
 
     const PRESEEDED_SLUG = 'how-to-learn-javascript-efficiently';
     let userToken: string;
+    let authorUsername: string;
 
     test.beforeAll(async ({ request }) => {
         const session: AuthSession = await registerUser(request);
         userToken = session.token;
+        authorUsername = session.user.username;
     });
 
     test.describe('Unauthenticated Operations', () => {
-        test('@smoke fetches list of comments for an article', async ({ request }) => {
+        test('fetches list of comments for an article', async ({ request }) => {
             const res = await request.get(`/api/articles/${PRESEEDED_SLUG}/comments`);
             expect(res.status()).toBe(200);
-
-            const body = (await res.json()) as MultipleCommentsResponseBody;
-            expect(Array.isArray(body.comments)).toBe(true);
-            body.comments.forEach((comment) => assertCommentSchema(comment));
+            assertMultipleCommentsSchema(await res.json());
         });
     });
 
@@ -86,9 +44,11 @@ test.describe('Comments Domain (/api/articles/:slug/comments)', () => {
                 });
                 expect(res.status()).toBe(201);
 
-                const body = (await res.json()) as SingleCommentResponseBody;
+                const body = assertCommentSchema(await res.json());
                 createdCommentId = body.comment.id;
-                assertCommentSchema(body.comment, commentText);
+
+                expect(body.comment.body).toBe(commentText);
+                expect(body.comment.author.username).toBe(authorUsername);
             });
 
             await test.step('retrieves comments list and finds newly created comment', async () => {
@@ -97,12 +57,12 @@ test.describe('Comments Domain (/api/articles/:slug/comments)', () => {
                 });
                 expect(res.status()).toBe(200);
 
-                const body = (await res.json()) as MultipleCommentsResponseBody;
+                const body = assertMultipleCommentsSchema(await res.json());
                 const foundComment = body.comments.find((c) => c.id === createdCommentId);
+
                 expect(foundComment).toBeDefined();
-                if (foundComment) {
-                    assertCommentSchema(foundComment, commentText);
-                }
+                expect(foundComment?.body).toBe(commentText);
+                expect(foundComment?.author.username).toBe(authorUsername);
             });
 
             await test.step('deletes the comment', async () => {
@@ -116,7 +76,7 @@ test.describe('Comments Domain (/api/articles/:slug/comments)', () => {
                 const res = await request.get(`/api/articles/${PRESEEDED_SLUG}/comments`);
                 expect(res.status()).toBe(200);
 
-                const body = (await res.json()) as MultipleCommentsResponseBody;
+                const body = assertMultipleCommentsSchema(await res.json());
                 const foundComment = body.comments.find((c) => c.id === createdCommentId);
                 expect(foundComment).toBeUndefined();
             });
@@ -131,8 +91,10 @@ test.describe('Comments Domain (/api/articles/:slug/comments)', () => {
                 },
             });
             expect(res.status()).toBe(401);
-            const body = await res.json();
-            expect(body).toHaveProperty('errors');
+
+            const body = assertErrorSchema(await res.json());
+            expect(body.errors).toHaveProperty('token');
+            expect(body.errors.token).toContain('is missing');
         });
 
         test('returns 404 when commenting on non-existent article', async ({ request }) => {
@@ -144,8 +106,10 @@ test.describe('Comments Domain (/api/articles/:slug/comments)', () => {
                 },
             });
             expect(res.status()).toBe(404);
-            const body = await res.json();
-            expect(body).toHaveProperty('errors');
+
+            const body = assertErrorSchema(await res.json());
+            expect(body.errors).toHaveProperty('article');
+            expect(body.errors.article).toContain('not found');
         });
     });
 });
