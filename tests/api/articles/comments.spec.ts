@@ -111,5 +111,52 @@ test.describe('Comments Domain (/api/articles/:slug/comments)', () => {
             expect(body.errors).toHaveProperty('article');
             expect(body.errors.article).toContain('not found');
         });
+
+        test('returns 403 when user attempts to delete a comment owned by another user', async ({ request }) => {
+            const PRESEEDED_COMMENT_ID = 1;
+
+            const res = await request.delete(
+                `/api/articles/${PRESEEDED_SLUG}/comments/${PRESEEDED_COMMENT_ID}`,
+                {
+                    headers: getAuthHeader(userToken),
+                }
+            );
+
+            expect(res.status()).toBe(403);
+
+            const body = assertErrorSchema(await res.json());
+            expect(body.errors).toHaveProperty('comment');
+            expect(body.errors.comment).toContain('forbidden');
+        });
+
+        test('returns 422 when posting comment with empty body', async ({ request }) => {
+            const res = await request.post(`/api/articles/${PRESEEDED_SLUG}/comments`, {
+                headers: getAuthHeader(userToken),
+                data: { comment: { body: '' } },
+            });
+            expect(res.status()).toBe(422);
+
+            const body = assertErrorSchema(await res.json());
+            expect(body.errors).toHaveProperty('body');
+            expect(body.errors.body).toContain("can't be blank");
+        });
+
+        test('returns 404 when attempting to delete a non-existent comment', async ({ request }) => {
+            // Generate an arbitrarily large ID unlikely to exist in the database
+            const nonExistentCommentId = 99999999;
+
+            const res = await request.delete(
+                `/api/articles/${PRESEEDED_SLUG}/comments/${nonExistentCommentId}`,
+                {
+                    headers: getAuthHeader(userToken),
+                }
+            );
+
+            expect(res.status()).toBe(404);
+
+            const body = assertErrorSchema(await res.json());
+            expect(body.errors).toHaveProperty('comment');
+            expect(body.errors.comment).toContain('not found');
+        });
     });
 });

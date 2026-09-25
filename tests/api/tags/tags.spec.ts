@@ -4,7 +4,7 @@ import { assertTagsSchema } from '../../../src/helpers/schema-helpers';
 test.describe('Tags Domain (/api/tags)', () => {
     test.use({ baseURL: 'https://api.realworld.show' });
 
-    test('fetches popular tags list', async ({ request }) => {
+    test('fetches tags list', async ({ request }) => {
         const res = await request.get('/api/tags');
         expect(res.status()).toBe(200);
 
@@ -21,9 +21,7 @@ test.describe('Tags Domain (/api/tags)', () => {
     });
 
     test('supports unauthenticated access', async ({ request }) => {
-        const res = await request.get('/api/tags', {
-            headers: {},
-        });
+        const res = await request.get('/api/tags');
         expect(res.status()).toBe(200);
         assertTagsSchema(await res.json());
     });

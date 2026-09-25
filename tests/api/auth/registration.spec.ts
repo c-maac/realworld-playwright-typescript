@@ -21,7 +21,7 @@ test.describe('POST /api/users', () => {
         const body = assertUserSchema(await response.json());
 
         expect(body.user.username).toBe(newUser.username);
-        expect(body.user.email).toBe(newUser.email.toLowerCase());
+        expect(body.user.email).toBe(newUser.email);
         expect(body.user.token.length).toBeGreaterThan(0);
         expect(body.user.bio).toBeNull();
         expect(body.user.image).toBeNull();

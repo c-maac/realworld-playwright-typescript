@@ -61,17 +61,27 @@ test.describe('Articles Feed Domain (/api/articles/feed)', () => {
                 });
             });
 
-            await test.step('verifies pagination using limit and offset parameters', async () => {
-                const limit = 1;
-                const res = await request.get('/api/articles/feed', {
+            await test.step('verifies pagination limit and offset behavior', async () => {
+                // Fetch page 1
+                const resPage1 = await request.get('/api/articles/feed', {
                     headers: authHeader,
-                    params: { limit, offset: 0 },
+                    params: { limit: 1, offset: 0 },
                 });
-                expect(res.status()).toBe(200);
+                expect(resPage1.status()).toBe(200);
+                const page1Body = assertMultipleArticlesSchema(await resPage1.json());
+                expect(page1Body.articles.length).toBeLessThanOrEqual(1);
 
-                const body = assertMultipleArticlesSchema(await res.json());
+                // If total feed has at least 2 articles, verify offset moves to next article
+                if (page1Body.articlesCount >= 2) {
+                    const resPage2 = await request.get('/api/articles/feed', {
+                        headers: authHeader,
+                        params: { limit: 1, offset: 1 },
+                    });
+                    expect(resPage2.status()).toBe(200);
+                    const page2Body = assertMultipleArticlesSchema(await resPage2.json());
 
-                expect(body.articles.length).toBeLessThanOrEqual(limit);
+                    expect(page2Body.articles[0].slug).not.toBe(page1Body.articles[0].slug);
+                }
             });
         });
     });

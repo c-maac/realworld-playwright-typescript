@@ -52,4 +52,48 @@ test.describe('POST /api/users/login', () => {
         expect(body.errors).toHaveProperty('credentials');
         expect(body.errors.credentials).toContain('invalid');
     });
+
+    // 1.Verifies null-check resilience (prevents 500s on missing records) 
+    // 2.Ensures identical error messaging for wrong emails and passwords.
+    test('returns 401 when email does not exist', async ({ request }) => {
+        const response = await request.post('/api/users/login', {
+            data: {
+                user: {
+                    email: `nonexistent_${Date.now()}@test.com`,
+                    password: 'AnyPassword123!',
+                },
+            },
+        });
+
+        expect(response.status()).toBe(401);
+
+        const body = assertErrorSchema(await response.json());
+        expect(body.errors).toHaveProperty('credentials');
+        expect(body.errors.credentials).toContain('invalid');
+    });
+
+    test('returns error when payload fields are blank', async ({ request }) => {
+        const response = await request.post('/api/users/login', {
+            data: {
+                user: {
+                    email: '',
+                    password: '',
+                },
+            },
+        });
+
+
+        expect(response.status()).toBe(422);
+
+        const body = assertErrorSchema(await response.json());
+        const expectedErrors = {
+            email: "can't be blank",
+            password: "can't be blank",
+        };
+
+        for (const [field, expectedMessage] of Object.entries(expectedErrors)) {
+            expect(body.errors).toHaveProperty(field);
+            expect(body.errors[field]).toContain(expectedMessage);
+        }
+    });
 });

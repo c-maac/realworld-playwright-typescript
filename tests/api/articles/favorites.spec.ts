@@ -3,6 +3,7 @@ import { AuthSession, registerUser, getAuthHeader } from '../../../src/helpers/a
 import {
     assertArticleSchema,
     assertErrorSchema,
+    assertMultipleArticlesSchema,
 } from '../../../src/helpers/schema-helpers';
 
 test.describe('Favorites Domain (/api/articles/:slug/favorite)', () => {
@@ -10,10 +11,12 @@ test.describe('Favorites Domain (/api/articles/:slug/favorite)', () => {
 
     const PRESEEDED_SLUG = 'how-to-learn-javascript-efficiently';
     let userToken: string;
+    let username: string;
 
     test.beforeAll(async ({ request }) => {
         const session: AuthSession = await registerUser(request);
         userToken = session.token;
+        username = session.user.username;
     });
 
     test.describe('Authenticated Operations', () => {
@@ -43,6 +46,21 @@ test.describe('Favorites Domain (/api/articles/:slug/favorite)', () => {
 
                 expect(body.article.favorited).toBe(true);
                 expect(body.article.favoritesCount).toBe(initialFavoritesCount + 1);
+            });
+
+            await test.step('verifies favorited article appears in filtered articles list (Authenticated)', async () => {
+                const res = await request.get('/api/articles', {
+                    headers: authHeader,
+                    params: { favorited: username },
+                });
+                expect(res.status()).toBe(200);
+
+                const body = assertMultipleArticlesSchema(await res.json());
+                expect(body.articles.length).toBeGreaterThan(0);
+
+                const match = body.articles.find((a) => a.slug === PRESEEDED_SLUG);
+                expect(match).toBeDefined();
+                expect(match?.favorited).toBe(true);
             });
 
             await test.step('unfavorites the article and decrements favoritesCount', async () => {
@@ -81,6 +99,50 @@ test.describe('Favorites Domain (/api/articles/:slug/favorite)', () => {
 
             expect(body.errors).toHaveProperty('article');
             expect(body.errors.article).toContain('not found');
+        });
+
+        test('handles duplicate favorite and unfavorite calls idempotently', async ({ request }) => {
+            const authHeader = getAuthHeader(userToken);
+
+            // 1. Initial Favorite Call
+            const firstFavRes = await request.post(`/api/articles/${PRESEEDED_SLUG}/favorite`, {
+                headers: authHeader,
+            });
+            expect(firstFavRes.status()).toBe(200);
+            const firstBody = assertArticleSchema(await firstFavRes.json());
+            const countAfterFirstFav = firstBody.article.favoritesCount;
+            expect(firstBody.article.favorited).toBe(true);
+
+            // 2. Duplicate Favorite Call (Second POST in a row)
+            const secondFavRes = await request.post(`/api/articles/${PRESEEDED_SLUG}/favorite`, {
+                headers: authHeader,
+            });
+            expect(secondFavRes.status()).toBe(200);
+            const secondBody = assertArticleSchema(await secondFavRes.json());
+
+            // Assert state remains identical and count did NOT double increment
+            expect(secondBody.article.favorited).toBe(true);
+            expect(secondBody.article.favoritesCount).toBe(countAfterFirstFav);
+
+            // 3. Initial Unfavorite Call
+            const firstUnfavRes = await request.delete(`/api/articles/${PRESEEDED_SLUG}/favorite`, {
+                headers: authHeader,
+            });
+            expect(firstUnfavRes.status()).toBe(200);
+            const firstUnfavBody = assertArticleSchema(await firstUnfavRes.json());
+            const countAfterFirstUnfav = firstUnfavBody.article.favoritesCount;
+            expect(firstUnfavBody.article.favorited).toBe(false);
+
+            // 4. Duplicate Unfavorite Call (Second DELETE in a row)
+            const secondUnfavRes = await request.delete(`/api/articles/${PRESEEDED_SLUG}/favorite`, {
+                headers: authHeader,
+            });
+            expect(secondUnfavRes.status()).toBe(200);
+            const secondUnfavBody = assertArticleSchema(await secondUnfavRes.json());
+
+            // Assert state remains unfavorited and count did NOT double decrement
+            expect(secondUnfavBody.article.favorited).toBe(false);
+            expect(secondUnfavBody.article.favoritesCount).toBe(countAfterFirstUnfav);
         });
     });
 });
