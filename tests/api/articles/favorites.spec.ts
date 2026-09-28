@@ -6,22 +6,64 @@ import {
     assertMultipleArticlesSchema,
 } from '../../../src/helpers/schema-helpers';
 
-test.describe('Favorites Domain (/api/articles/:slug/favorite)', () => {
+/**
+ * Setup Isolation Strategy for /api/articles/:slug/favorite:
+ * 
+ * 1. Read & Validation Operations (beforeAll):
+ *    Uses a shared user session to perform GET queries, unauthenticated checks, 
+ *    and rejected validation/error requests (401, 404). These operations do not 
+ *    mutate user-owned state, maximizing test suite speed.
+ * 
+ * 2. State-Mutating Lifecycle Operations (beforeEach):
+ *    Provisions a fresh user session for favorite, unfavorite, and idempotency 
+ *    operations to isolate favorited state from polluting other tests or parallel workers.
+ */
+
+const PRESEEDED_SLUG = 'how-to-learn-javascript-efficiently';
+
+test.describe('/api/articles/:slug/favorite', () => {
     test.use({ baseURL: 'https://api.realworld.show' });
 
-    const PRESEEDED_SLUG = 'how-to-learn-javascript-efficiently';
-    let userToken: string;
-    let username: string;
+    let sharedUser: AuthSession;
 
     test.beforeAll(async ({ request }) => {
-        const session: AuthSession = await registerUser(request);
-        userToken = session.token;
-        username = session.user.username;
+        sharedUser = await registerUser(request);
     });
 
-    test.describe('Authenticated Operations', () => {
-        test('manages favorite and unfavorite lifecycle', async ({ request }) => {
-            const authHeader = getAuthHeader(userToken);
+    test.describe('Read & Validation Operations', () => {
+        test('returns 401 when favoriting without auth token @negative', async ({ request }) => {
+            const res = await request.post(`/api/articles/${PRESEEDED_SLUG}/favorite`);
+            expect(res.status()).toBe(401);
+
+            const body = assertErrorSchema(await res.json());
+
+            expect(body.errors).toHaveProperty('token');
+            expect(body.errors.token).toContain('is missing');
+        });
+
+        test('returns 404 when favoriting non-existent article @negative', async ({ request }) => {
+            const nonExistentSlug = `non-existent-${Date.now()}`;
+            const res = await request.post(`/api/articles/${nonExistentSlug}/favorite`, {
+                headers: getAuthHeader(sharedUser.token),
+            });
+            expect(res.status()).toBe(404);
+
+            const body = assertErrorSchema(await res.json());
+
+            expect(body.errors).toHaveProperty('article');
+            expect(body.errors.article).toContain('not found');
+        });
+    });
+
+    test.describe('State-Mutating Lifecycle Operations', () => {
+        let user: AuthSession;
+
+        test.beforeEach(async ({ request }) => {
+            user = await registerUser(request);
+        });
+
+        test('manages favorite and unfavorite lifecycle @smoke', async ({ request }) => {
+            const authHeader = getAuthHeader(user.token);
             let initialFavoritesCount: number;
 
             await test.step('fetches initial article state', async () => {
@@ -48,10 +90,10 @@ test.describe('Favorites Domain (/api/articles/:slug/favorite)', () => {
                 expect(body.article.favoritesCount).toBe(initialFavoritesCount + 1);
             });
 
-            await test.step('verifies favorited article appears in filtered articles list (Authenticated)', async () => {
+            await test.step('verifies favorited article appears in filtered articles list', async () => {
                 const res = await request.get('/api/articles', {
                     headers: authHeader,
-                    params: { favorited: username },
+                    params: { favorited: user.user.username },
                 });
                 expect(res.status()).toBe(200);
 
@@ -75,34 +117,9 @@ test.describe('Favorites Domain (/api/articles/:slug/favorite)', () => {
                 expect(body.article.favoritesCount).toBe(initialFavoritesCount);
             });
         });
-    });
 
-    test.describe('Error Handling', () => {
-        test('returns 401 when favoriting without auth token', async ({ request }) => {
-            const res = await request.post(`/api/articles/${PRESEEDED_SLUG}/favorite`);
-            expect(res.status()).toBe(401);
-
-            const body = assertErrorSchema(await res.json());
-
-            expect(body.errors).toHaveProperty('token');
-            expect(body.errors.token).toContain('is missing');
-        });
-
-        test('returns 404 when favoriting non-existent article', async ({ request }) => {
-            const nonExistentSlug = `non-existent-${Date.now()}`;
-            const res = await request.post(`/api/articles/${nonExistentSlug}/favorite`, {
-                headers: getAuthHeader(userToken),
-            });
-            expect(res.status()).toBe(404);
-
-            const body = assertErrorSchema(await res.json());
-
-            expect(body.errors).toHaveProperty('article');
-            expect(body.errors.article).toContain('not found');
-        });
-
-        test('handles duplicate favorite and unfavorite calls idempotently', async ({ request }) => {
-            const authHeader = getAuthHeader(userToken);
+        test('handles duplicate favorite and unfavorite calls idempotently @regression', async ({ request }) => {
+            const authHeader = getAuthHeader(user.token);
 
             // 1. Initial Favorite Call
             const firstFavRes = await request.post(`/api/articles/${PRESEEDED_SLUG}/favorite`, {

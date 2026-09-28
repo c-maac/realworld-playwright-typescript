@@ -1,10 +1,10 @@
 import { test, expect } from '@playwright/test';
 import { assertTagsSchema } from '../../../src/helpers/schema-helpers';
 
-test.describe('Tags Domain (/api/tags)', () => {
+test.describe('/api/tags', () => {
     test.use({ baseURL: 'https://api.realworld.show' });
 
-    test('fetches tags list', async ({ request }) => {
+    test('fetches tags list @smoke', async ({ request }) => {
         const res = await request.get('/api/tags');
         expect(res.status()).toBe(200);
 
@@ -18,11 +18,5 @@ test.describe('Tags Domain (/api/tags)', () => {
         body.tags.forEach((tag) => {
             expect(tag.trim().length).toBeGreaterThan(0);
         });
-    });
-
-    test('supports unauthenticated access', async ({ request }) => {
-        const res = await request.get('/api/tags');
-        expect(res.status()).toBe(200);
-        assertTagsSchema(await res.json());
     });
 });

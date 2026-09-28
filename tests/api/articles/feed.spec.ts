@@ -5,22 +5,52 @@ import {
     assertErrorSchema,
 } from '../../../src/helpers/schema-helpers';
 
-test.describe('Articles Feed Domain (/api/articles/feed)', () => {
+/**
+ * Setup Isolation Strategy for /api/articles/feed:
+ * 
+ * 1. Read & Validation Operations (beforeAll):
+ *    Uses a shared user session to perform unauthenticated checks and negative 
+ *    validation tests (401). These operations do not mutate state, maximizing execution speed.
+ * 
+ * 2. State-Mutating Lifecycle Operations (beforeEach):
+ *    Provisions a fresh user session for feed lifecycle tests (following users, 
+ *    populating personalized feeds, and verifying pagination) to prevent follow state 
+ *    from polluting parallel workers or other test scenarios.
+ */
+
+const TARGET_AUTHOR_1 = 'johndoe';
+const TARGET_AUTHOR_2 = 'janesmith';
+
+test.describe('/api/articles/feed', () => {
     test.use({ baseURL: 'https://api.realworld.show' });
 
-    const TARGET_AUTHOR_1 = 'johndoe';
-    const TARGET_AUTHOR_2 = 'janesmith';
-
-    let userToken: string;
+    let sharedUser: AuthSession;
 
     test.beforeAll(async ({ request }) => {
-        const session: AuthSession = await registerUser(request);
-        userToken = session.token;
+        sharedUser = await registerUser(request);
     });
 
-    test.describe('Authenticated Operations', () => {
-        test('manages feed lifecycle (empty check, follow users, verify feed, pagination)', async ({ request }) => {
-            const authHeader = getAuthHeader(userToken);
+    test.describe('Read & Validation Operations', () => {
+        test('returns 401 when accessing feed without authorization @negative', async ({ request }) => {
+            const res = await request.get('/api/articles/feed');
+            expect(res.status()).toBe(401);
+
+            const body = assertErrorSchema(await res.json());
+
+            expect(body.errors).toHaveProperty('token');
+            expect(body.errors.token).toContain('is missing');
+        });
+    });
+
+    test.describe('State-Mutating Lifecycle Operations', () => {
+        let user: AuthSession;
+
+        test.beforeEach(async ({ request }) => {
+            user = await registerUser(request);
+        });
+
+        test('manages feed lifecycle (empty check, follow users, verify feed, pagination) @smoke', async ({ request }) => {
+            const authHeader = getAuthHeader(user.token);
 
             await test.step('verifies newly created user has an empty feed', async () => {
                 const res = await request.get('/api/articles/feed', { headers: authHeader });
@@ -50,12 +80,14 @@ test.describe('Articles Feed Domain (/api/articles/feed)', () => {
 
                 const body = assertMultipleArticlesSchema(await res.json());
 
-                expect(body.articles.length).toBeGreaterThan(0);
+                expect(
+                    body.articles.length,
+                    `PRE-SEEDED DATA MISSING: Followed authors "${TARGET_AUTHOR_1}" or "${TARGET_AUTHOR_2}" have no articles in database.`
+                ).toBeGreaterThan(0);
                 expect(body.articlesCount).toBeGreaterThan(0);
 
                 body.articles.forEach((article) => {
-                    // all items in user's personalized feed 
-                    // must be from followed users
+                    // All items in user's personalized feed must be from followed users
                     expect(article.author.following).toBe(true);
                     expect([TARGET_AUTHOR_1, TARGET_AUTHOR_2]).toContain(article.author.username);
                 });
@@ -83,18 +115,6 @@ test.describe('Articles Feed Domain (/api/articles/feed)', () => {
                     expect(page2Body.articles[0].slug).not.toBe(page1Body.articles[0].slug);
                 }
             });
-        });
-    });
-
-    test.describe('Error Handling', () => {
-        test('returns 401 when accessing feed without authorization', async ({ request }) => {
-            const res = await request.get('/api/articles/feed');
-            expect(res.status()).toBe(401);
-
-            const body = assertErrorSchema(await res.json());
-
-            expect(body.errors).toHaveProperty('token');
-            expect(body.errors.token).toContain('is missing');
         });
     });
 });

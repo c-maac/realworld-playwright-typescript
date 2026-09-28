@@ -5,7 +5,7 @@ import {
     assertErrorSchema,
 } from '../../../src/helpers/schema-helpers';
 
-test.describe('POST /api/users/login', () => {
+test.describe('/api/users/login', () => {
     test.use({ baseURL: 'https://api.realworld.show' });
 
     let session: AuthSession;
@@ -14,7 +14,7 @@ test.describe('POST /api/users/login', () => {
         session = await registerUser(request);
     });
 
-    test('authenticates existing user', async ({ request }) => {
+    test('authenticates existing user @smoke', async ({ request }) => {
         const response = await request.post('/api/users/login', {
             data: {
                 user: {
@@ -35,7 +35,7 @@ test.describe('POST /api/users/login', () => {
         expect(body.user.image).toBeNull();
     });
 
-    test('returns 401 on invalid password', async ({ request }) => {
+    test('returns 401 on invalid password @negative', async ({ request }) => {
         const response = await request.post('/api/users/login', {
             data: {
                 user: {
@@ -53,9 +53,10 @@ test.describe('POST /api/users/login', () => {
         expect(body.errors.credentials).toContain('invalid');
     });
 
-    // 1.Verifies null-check resilience (prevents 500s on missing records) 
-    // 2.Ensures identical error messaging for wrong emails and passwords.
-    test('returns 401 when email does not exist', async ({ request }) => {
+
+    // Null-Safety: Confirms backend gracefully handles missing DB records (prevents 500s).
+    // Security: Enforces identical generic error payload to prevent user enumeration attacks.
+    test('returns 401 on non-existent email @negative', async ({ request }) => {
         const response = await request.post('/api/users/login', {
             data: {
                 user: {
@@ -72,7 +73,7 @@ test.describe('POST /api/users/login', () => {
         expect(body.errors.credentials).toContain('invalid');
     });
 
-    test('returns error when payload fields are blank', async ({ request }) => {
+    test('returns 422 on blank payload fields @negative', async ({ request }) => {
         const response = await request.post('/api/users/login', {
             data: {
                 user: {
@@ -81,7 +82,6 @@ test.describe('POST /api/users/login', () => {
                 },
             },
         });
-
 
         expect(response.status()).toBe(422);
 

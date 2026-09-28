@@ -6,30 +6,136 @@ import {
     assertErrorSchema,
 } from '../../../src/helpers/schema-helpers';
 
-test.describe('Comments Domain (/api/articles/:slug/comments)', () => {
+/**
+ * Setup Isolation Strategy for /api/articles/:slug/comments:
+ * 
+ * 1. Read & Validation Operations (beforeAll):
+ *    Uses a shared user session to perform GET queries, unauthenticated checks, 
+ *    validation failures (422), and forbidden access attempts (403). These operations 
+ *    do not mutate user-owned state, maximizing execution speed.
+ * 
+ * 2. State-Mutating Lifecycle Operations (beforeEach):
+ *    Provisions a fresh author session for CRUD operations to isolate created 
+ *    and deleted comments from polluting shared feeds or parallel workers.
+ */
+
+const PRESEEDED_SLUG = 'how-to-learn-javascript-efficiently';
+
+test.describe('/api/articles/:slug/comments', () => {
     test.use({ baseURL: 'https://api.realworld.show' });
 
-    const PRESEEDED_SLUG = 'how-to-learn-javascript-efficiently';
-    let userToken: string;
-    let authorUsername: string;
+    let sharedUser: AuthSession;
 
     test.beforeAll(async ({ request }) => {
-        const session: AuthSession = await registerUser(request);
-        userToken = session.token;
-        authorUsername = session.user.username;
+        sharedUser = await registerUser(request);
     });
 
-    test.describe('Unauthenticated Operations', () => {
-        test('fetches list of comments for an article', async ({ request }) => {
+    test.describe('Read & Validation Operations', () => {
+        test('fetches list of comments for an article (unauthenticated) @smoke', async ({ request }) => {
             const res = await request.get(`/api/articles/${PRESEEDED_SLUG}/comments`);
             expect(res.status()).toBe(200);
+
             assertMultipleCommentsSchema(await res.json());
+        });
+
+        test('returns 401 on comment creation without auth token @negative', async ({ request }) => {
+            const res = await request.post(`/api/articles/${PRESEEDED_SLUG}/comments`, {
+                data: {
+                    comment: { body: 'Unauthorized comment' },
+                },
+            });
+            expect(res.status()).toBe(401);
+
+            const body = assertErrorSchema(await res.json());
+            expect(body.errors).toHaveProperty('token');
+            expect(body.errors.token).toContain('is missing');
+        });
+
+        test('returns 404 on commenting on non-existent article @negative', async ({ request }) => {
+            const nonExistentSlug = `non-existent-${Date.now()}`;
+            const res = await request.post(`/api/articles/${nonExistentSlug}/comments`, {
+                headers: getAuthHeader(sharedUser.token),
+                data: {
+                    comment: { body: 'Test comment' },
+                },
+            });
+            expect(res.status()).toBe(404);
+
+            const body = assertErrorSchema(await res.json());
+            expect(body.errors).toHaveProperty('article');
+            expect(body.errors.article).toContain('not found');
+        });
+
+        test('returns 403 on comment deletion owned by another user @negative', async ({ request }) => {
+            // Fetch pre-seeded comments on the article
+            const commentsRes = await request.get(`/api/articles/${PRESEEDED_SLUG}/comments`);
+            expect(commentsRes.status()).toBe(200);
+            const { comments } = assertMultipleCommentsSchema(await commentsRes.json());
+
+            // Dynamically locate a comment not authored by sharedUser
+            const foreignComment = comments.find(
+                (c) => c.author.username !== sharedUser.user.username
+            );
+
+            expect(
+                foreignComment,
+                `PRE-SEEDED DATA MISSING: Expected at least one comment authored by another user on article "${PRESEEDED_SLUG}".`
+            ).toBeDefined();
+
+            // Attempt to delete that comment using sharedUser's session
+            const deleteRes = await request.delete(
+                `/api/articles/${PRESEEDED_SLUG}/comments/${foreignComment!.id}`,
+                {
+                    headers: getAuthHeader(sharedUser.token),
+                }
+            );
+
+            expect(deleteRes.status()).toBe(403);
+
+            const body = assertErrorSchema(await deleteRes.json());
+            expect(body.errors).toHaveProperty('comment');
+            expect(body.errors.comment).toContain('forbidden');
+        });
+
+        test('returns 422 on comment creation with empty body @negative', async ({ request }) => {
+            const res = await request.post(`/api/articles/${PRESEEDED_SLUG}/comments`, {
+                headers: getAuthHeader(sharedUser.token),
+                data: { comment: { body: '' } },
+            });
+            expect(res.status()).toBe(422);
+
+            const body = assertErrorSchema(await res.json());
+            expect(body.errors).toHaveProperty('body');
+            expect(body.errors.body).toContain("can't be blank");
+        });
+
+        test('returns 404 on non-existent comment deletion @negative', async ({ request }) => {
+            const nonExistentCommentId = 99999999;
+
+            const res = await request.delete(
+                `/api/articles/${PRESEEDED_SLUG}/comments/${nonExistentCommentId}`,
+                {
+                    headers: getAuthHeader(sharedUser.token),
+                }
+            );
+
+            expect(res.status()).toBe(404);
+
+            const body = assertErrorSchema(await res.json());
+            expect(body.errors).toHaveProperty('comment');
+            expect(body.errors.comment).toContain('not found');
         });
     });
 
-    test.describe('Authenticated Operations', () => {
-        test('manages comment lifecycle (create, verify list, delete)', async ({ request }) => {
-            const authHeader = getAuthHeader(userToken);
+    test.describe('State-Mutating Lifecycle Operations', () => {
+        let author: AuthSession;
+
+        test.beforeEach(async ({ request }) => {
+            author = await registerUser(request);
+        });
+
+        test('manages comment lifecycle (create, verify list, delete) @smoke', async ({ request }) => {
+            const authHeader = getAuthHeader(author.token);
             const commentText = `Automation comment ${Date.now()}`;
             let createdCommentId: number;
 
@@ -48,7 +154,7 @@ test.describe('Comments Domain (/api/articles/:slug/comments)', () => {
                 createdCommentId = body.comment.id;
 
                 expect(body.comment.body).toBe(commentText);
-                expect(body.comment.author.username).toBe(authorUsername);
+                expect(body.comment.author.username).toBe(author.user.username);
             });
 
             await test.step('retrieves comments list and finds newly created comment', async () => {
@@ -62,13 +168,16 @@ test.describe('Comments Domain (/api/articles/:slug/comments)', () => {
 
                 expect(foundComment).toBeDefined();
                 expect(foundComment?.body).toBe(commentText);
-                expect(foundComment?.author.username).toBe(authorUsername);
+                expect(foundComment?.author.username).toBe(author.user.username);
             });
 
             await test.step('deletes the comment', async () => {
-                const res = await request.delete(`/api/articles/${PRESEEDED_SLUG}/comments/${createdCommentId}`, {
-                    headers: authHeader,
-                });
+                const res = await request.delete(
+                    `/api/articles/${PRESEEDED_SLUG}/comments/${createdCommentId}`,
+                    {
+                        headers: authHeader,
+                    }
+                );
                 expect(res.status()).toBe(204);
             });
 
@@ -80,83 +189,6 @@ test.describe('Comments Domain (/api/articles/:slug/comments)', () => {
                 const foundComment = body.comments.find((c) => c.id === createdCommentId);
                 expect(foundComment).toBeUndefined();
             });
-        });
-    });
-
-    test.describe('Error Handling', () => {
-        test('returns 401 when posting comment without auth token', async ({ request }) => {
-            const res = await request.post(`/api/articles/${PRESEEDED_SLUG}/comments`, {
-                data: {
-                    comment: { body: 'Unauthorized comment' },
-                },
-            });
-            expect(res.status()).toBe(401);
-
-            const body = assertErrorSchema(await res.json());
-            expect(body.errors).toHaveProperty('token');
-            expect(body.errors.token).toContain('is missing');
-        });
-
-        test('returns 404 when commenting on non-existent article', async ({ request }) => {
-            const nonExistentSlug = `non-existent-${Date.now()}`;
-            const res = await request.post(`/api/articles/${nonExistentSlug}/comments`, {
-                headers: getAuthHeader(userToken),
-                data: {
-                    comment: { body: 'Test comment' },
-                },
-            });
-            expect(res.status()).toBe(404);
-
-            const body = assertErrorSchema(await res.json());
-            expect(body.errors).toHaveProperty('article');
-            expect(body.errors.article).toContain('not found');
-        });
-
-        test('returns 403 when user attempts to delete a comment owned by another user', async ({ request }) => {
-            const PRESEEDED_COMMENT_ID = 1;
-
-            const res = await request.delete(
-                `/api/articles/${PRESEEDED_SLUG}/comments/${PRESEEDED_COMMENT_ID}`,
-                {
-                    headers: getAuthHeader(userToken),
-                }
-            );
-
-            expect(res.status()).toBe(403);
-
-            const body = assertErrorSchema(await res.json());
-            expect(body.errors).toHaveProperty('comment');
-            expect(body.errors.comment).toContain('forbidden');
-        });
-
-        test('returns 422 when posting comment with empty body', async ({ request }) => {
-            const res = await request.post(`/api/articles/${PRESEEDED_SLUG}/comments`, {
-                headers: getAuthHeader(userToken),
-                data: { comment: { body: '' } },
-            });
-            expect(res.status()).toBe(422);
-
-            const body = assertErrorSchema(await res.json());
-            expect(body.errors).toHaveProperty('body');
-            expect(body.errors.body).toContain("can't be blank");
-        });
-
-        test('returns 404 when attempting to delete a non-existent comment', async ({ request }) => {
-            // Generate an arbitrarily large ID unlikely to exist in the database
-            const nonExistentCommentId = 99999999;
-
-            const res = await request.delete(
-                `/api/articles/${PRESEEDED_SLUG}/comments/${nonExistentCommentId}`,
-                {
-                    headers: getAuthHeader(userToken),
-                }
-            );
-
-            expect(res.status()).toBe(404);
-
-            const body = assertErrorSchema(await res.json());
-            expect(body.errors).toHaveProperty('comment');
-            expect(body.errors.comment).toContain('not found');
         });
     });
 });
