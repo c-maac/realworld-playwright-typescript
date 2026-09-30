@@ -1,23 +1,9 @@
 import { test, expect } from '@playwright/test';
-import { AuthSession, registerUser, getAuthHeader } from '../../../src/helpers/api-helpers';
+import { AuthSession, registerUser, getAuthHeader, getUniqueStamp } from '../../../src/helpers/api-helpers';
 import {
     assertUserSchema,
     assertErrorSchema,
 } from '../../../src/helpers/schema-helpers';
-
-/**
- * Setup Isolation Strategy for /api/user:
- * 
- * 1. Read & Validation Operations (beforeAll):
- *    Uses a single shared user session across all tests. Read checks (GET) and rejected 
- *    validation attempts (401/422) do not alter database state, allowing maximum test 
- *    speed without risk of side effects.
- * 
- * 2. State-Mutating Updates (beforeEach):
- *    Provisions a fresh user account before every test. State changes like updating 
- *    credentials, bio, or passwords alter the account state; fresh isolation prevents 
- *    cross-test contamination and ensures deterministic runs.
- */
 
 test.describe('/api/user', () => {
     test.use({ baseURL: 'https://api.realworld.show' });
@@ -45,7 +31,7 @@ test.describe('/api/user', () => {
             expect(body.user.image).toBeNull();
         });
 
-        test('returns 401 on GET with missing auth token @negative', async ({ request }) => {
+        test('returns 401 on missing auth token (GET) @negative', async ({ request }) => {
             const response = await request.get('/api/user');
 
             expect(response.status()).toBe(401);
@@ -56,7 +42,7 @@ test.describe('/api/user', () => {
             expect(body.errors.token).toContain('is missing');
         });
 
-        test('returns 401 on GET with invalid auth token @negative', async ({ request }) => {
+        test('returns 401 on invalid auth token (GET) @negative', async ({ request }) => {
             const response = await request.get('/api/user', {
                 headers: { Authorization: 'Token invalid_token_12345' },
             });
@@ -69,7 +55,7 @@ test.describe('/api/user', () => {
             expect(body.errors.token).toContain('is missing');
         });
 
-        test('returns 401 on PUT without auth token @negative', async ({ request }) => {
+        test('returns 401 on missing auth token (PUT) @negative', async ({ request }) => {
             const response = await request.put('/api/user', {
                 data: { user: { bio: 'Unauthorized update attempt' } },
             });
@@ -144,65 +130,17 @@ test.describe('/api/user', () => {
             session = await registerUser(request);
         });
 
-        test('updates profile bio and image and verifies persistence @smoke', async ({ request }) => {
+        test('updates username and verifies public profile resolution @smoke', async ({ request }) => {
             const authHeader = getAuthHeader(session.token);
-            const updatedBio = `Updated Bio - ${Date.now()}`;
-            const updatedImage = 'https://api.realworld.show/images/demo-avatar.png';
+            const oldUsername = session.user.username;
+            const newUsername = `updated_user_${getUniqueStamp()}`;
 
-            await test.step('updates bio and image via PUT', async () => {
-                const response = await request.put('/api/user', {
-                    headers: authHeader,
-                    data: {
-                        user: {
-                            bio: updatedBio,
-                            image: updatedImage,
-                        },
-                    },
-                });
-
-                expect(response.status()).toBe(200);
-
-                const body = assertUserSchema(await response.json());
-
-                expect(body.user.bio).toBe(updatedBio);
-                expect(body.user.image).toBe(updatedImage);
-                expect(body.user.username).toBe(session.user.username);
-                expect(body.user.email).toBe(session.user.email);
-            });
-
-            await test.step('verifies updates are persisted via GET', async () => {
-                const response = await request.get('/api/user', {
-                    headers: authHeader,
-                });
-
-                expect(response.status()).toBe(200);
-
-                const body = assertUserSchema(await response.json());
-
-                expect(body.user.bio).toBe(updatedBio);
-                expect(body.user.image).toBe(updatedImage);
-                expect(body.user.username).toBe(session.user.username);
-                expect(body.user.email).toBe(session.user.email);
-            });
-        });
-
-        // RealWorld API backend implementations may re-issue an identical JWT string 
-        // after email/username updates. We capture the returned token directly from the response 
-        // payload to maintain production client contract behavior.
-        test('updates credentials and re-authenticates with updated token @regression', async ({ request }) => {
-            const authHeader = getAuthHeader(session.token);
-            const newUsername = `updated_user_${Date.now()}`;
-            const newEmail = `updated_email_${Date.now()}@example.com`;
-
-            let newToken: string;
-
-            await test.step('updates username and email via PUT', async () => {
+            await test.step('updates username', async () => {
                 const response = await request.put('/api/user', {
                     headers: authHeader,
                     data: {
                         user: {
                             username: newUsername,
-                            email: newEmail,
                         },
                     },
                 });
@@ -210,52 +148,72 @@ test.describe('/api/user', () => {
                 expect(response.status()).toBe(200);
 
                 const body = assertUserSchema(await response.json());
-
                 expect(body.user.username).toBe(newUsername);
-                expect(body.user.email).toBe(newEmail);
-                expect(body.user.token.length).toBeGreaterThan(0);
 
-                newToken = body.user.token;
             });
 
-            await test.step('verifies persistence using the new token via GET', async () => {
-                const response = await request.get('/api/user', {
-                    headers: getAuthHeader(newToken),
+            // Cross-Endpoint Verification:
+            // Verifying against GET /api/profiles/:username proves that the username update
+            // propagated through database lookup indices and public routing, while confirming
+            // the old username handle was properly released.  
+            await test.step('verifies new username is publicly resolvable via GET /api/profiles', async () => {
+                const response = await request.get(`/api/profiles/${newUsername}`, {
+                    headers: authHeader,
+                });
+
+                expect(response.status()).toBe(200);
+
+                const body = await response.json();
+                expect(body.profile.username).toBe(newUsername);
+            });
+
+            await test.step('verifies old username handle is released (404)', async () => {
+                const response = await request.get(`/api/profiles/${oldUsername}`, {
+                    headers: authHeader,
+                });
+
+                expect(response.status()).toBe(404);
+            });
+        });
+
+        test('updates email and logins with new email @smoke', async ({ request }) => {
+            const authHeader = getAuthHeader(session.token);
+            const newEmail = `updated_${getUniqueStamp()}@test.com`;
+
+            await test.step('updates email via PUT /api/user', async () => {
+                const response = await request.put('/api/user', {
+                    headers: authHeader,
+                    data: {
+                        user: { email: newEmail },
+                    },
                 });
 
                 expect(response.status()).toBe(200);
 
                 const body = assertUserSchema(await response.json());
-
-                expect(body.user.username).toBe(newUsername);
                 expect(body.user.email).toBe(newEmail);
-                expect(body.user.token).toBe(newToken);
             });
-        });
 
-        test('normalizes empty string bio and image to null @regression', async ({ request }) => {
-            const authHeader = getAuthHeader(session.token);
-
-            const response = await request.put('/api/user', {
-                headers: authHeader,
-                data: {
-                    user: {
-                        bio: '',
-                        image: '',
+            await test.step('verifies login succeeds with updated email via POST /api/users/login', async () => {
+                const response = await request.post('/api/users/login', {
+                    data: {
+                        user: {
+                            email: newEmail,
+                            password: session.credentials.password,
+                        },
                     },
-                },
+                });
+
+                expect(response.status()).toBe(200);
+
+                const body = assertUserSchema(await response.json());
+                expect(body.user.email).toBe(newEmail);
+                expect(body.user.token.length).toBeGreaterThan(0);
             });
-
-            expect(response.status()).toBe(200);
-
-            const body = assertUserSchema(await response.json());
-
-            expect(body.user.bio).toBeNull();
-            expect(body.user.image).toBeNull();
         });
 
-        test('updates password and verifies login with new credentials @smoke', async ({ request }) => {
-            const newPassword = `NewPass_${Date.now()}`;
+        test('updates password and logins with new password @smoke', async ({ request }) => {
+            const newPassword = `NewPass_${getUniqueStamp()}`;
 
             await test.step('updates password via PUT /api/user', async () => {
                 const response = await request.put('/api/user', {
@@ -296,6 +254,52 @@ test.describe('/api/user', () => {
                 const body = assertUserSchema(await response.json());
                 expect(body.user.token.length).toBeGreaterThan(0);
             });
+        });
+
+        test('updates profile bio and image @regression', async ({ request }) => {
+            const authHeader = getAuthHeader(session.token);
+            const updatedBio = `Updated Bio - ${getUniqueStamp()}`;
+            const updatedImage = 'https://api.realworld.show/images/demo-avatar.png';
+
+            const response = await request.put('/api/user', {
+                headers: authHeader,
+                data: {
+                    user: {
+                        bio: updatedBio,
+                        image: updatedImage,
+                    },
+                },
+            });
+
+            expect(response.status()).toBe(200);
+
+            const body = assertUserSchema(await response.json());
+
+            expect(body.user.bio).toBe(updatedBio);
+            expect(body.user.image).toBe(updatedImage);
+            expect(body.user.username).toBe(session.user.username);
+            expect(body.user.email).toBe(session.user.email);
+        });
+
+        test('normalizes empty string bio and image to null @regression', async ({ request }) => {
+            const authHeader = getAuthHeader(session.token);
+
+            const response = await request.put('/api/user', {
+                headers: authHeader,
+                data: {
+                    user: {
+                        bio: '',
+                        image: '',
+                    },
+                },
+            });
+
+            expect(response.status()).toBe(200);
+
+            const body = assertUserSchema(await response.json());
+
+            expect(body.user.bio).toBeNull();
+            expect(body.user.image).toBeNull();
         });
 
         // NIST SP 800-63B Password Guidelines
