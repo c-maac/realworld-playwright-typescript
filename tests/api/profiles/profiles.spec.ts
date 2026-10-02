@@ -1,20 +1,6 @@
 import { test, expect } from '@playwright/test';
-import { AuthSession, registerUser, getAuthHeader } from '../../../src/helpers/api-helpers';
+import { AuthSession, registerUser, getAuthHeader, getUniqueStamp } from '../../../src/helpers/api-helpers';
 import { assertErrorSchema, assertProfileSchema } from '../../../src/helpers/schema-helpers';
-
-/**
- * Setup Isolation Strategy for /api/profiles:
- * 
- * 1. Read & Validation Operations (beforeAll):
- *    Uses a shared user session to execute GET requests, unauthenticated attempts, 
- *    and error checks against pre-seeded target data. These operations do not alter 
- *    database state, allowing maximum test execution speed.
- * 
- * 2. State-Mutating Lifecycle Operations (beforeEach):
- *    Provisions a fresh follower account for each lifecycle run against the pre-seeded target. 
- *    This guarantees that the test always starts with `following: false`, ensuring 
- *    idempotency even if a previous run crashed mid-execution.
- */
 
 // Pre-seeded target user guaranteed to exist on target environment
 const TARGET_USERNAME = 'johndoe';
@@ -22,14 +8,15 @@ const TARGET_USERNAME = 'johndoe';
 test.describe('/api/profiles/:username', () => {
     test.use({ baseURL: 'https://api.realworld.show' });
 
-    let sharedUser: AuthSession;
-
-    test.beforeAll(async ({ request }) => {
-        sharedUser = await registerUser(request);
-    });
-
     test.describe('Read & Validation Operations', () => {
-        test('fetches user profile unauthenticated @smoke', async ({ request }) => {
+
+        let sharedUser: AuthSession;
+
+        test.beforeAll(async ({ request }) => {
+            sharedUser = await registerUser(request);
+        });
+
+        test('fetches user profile (unauthenticated) @smoke', async ({ request }) => {
             const response = await request.get(`/api/profiles/${TARGET_USERNAME}`);
 
             expect(response.status()).toBe(200);
@@ -61,7 +48,7 @@ test.describe('/api/profiles/:username', () => {
         });
 
         test('returns 404 on fetching non-existent profile @negative', async ({ request }) => {
-            const nonExistentUsername = `non_existent_user_${Date.now()}`;
+            const nonExistentUsername = `non_existent_user_${getUniqueStamp()}`;
             const response = await request.get(`/api/profiles/${nonExistentUsername}`);
 
             expect(response.status()).toBe(404);
@@ -73,7 +60,7 @@ test.describe('/api/profiles/:username', () => {
         });
 
         test('returns 404 on following non-existent profile @negative', async ({ request }) => {
-            const nonExistentUsername = `non_existent_user_${Date.now()}`;
+            const nonExistentUsername = `non_existent_user_${getUniqueStamp()}`;
             const response = await request.post(`/api/profiles/${nonExistentUsername}/follow`, {
                 headers: getAuthHeader(sharedUser.token),
             });
@@ -90,7 +77,7 @@ test.describe('/api/profiles/:username', () => {
         // `follower_id !== followee_id` validation. This is an anti-pattern as it inflates
         // metrics and pollutes personal feed logic, but expecting 200 OK matches this server's current behavior.
         test('returns 422 on self-follow attempt @negative', async ({ request }) => {
-            test.fixme(true, 'Backend bug: RealWorld API lacks follower_id !== followee_id constraint and returns 200 OK');
+            test.fixme(true, 'Bug: RealWorld API lacks follower_id !== followee_id constraint and returns 200 OK');
 
             const response = await request.post(`/api/profiles/${sharedUser.user.username}/follow`, {
                 headers: getAuthHeader(sharedUser.token),
@@ -107,7 +94,7 @@ test.describe('/api/profiles/:username', () => {
             follower = await registerUser(request);
         });
 
-        test('manages follow and unfollow relationship lifecycle @smoke', async ({ request }) => {
+        test('manages follow and unfollow relationship @smoke', async ({ request }) => {
             const authHeader = getAuthHeader(follower.token);
 
             await test.step('checks initial follow status', async () => {
@@ -139,6 +126,15 @@ test.describe('/api/profiles/:username', () => {
 
             await test.step('unfollows target user', async () => {
                 const res = await request.delete(`/api/profiles/${TARGET_USERNAME}/follow`, { headers: authHeader });
+                expect(res.status()).toBe(200);
+
+                const body = assertProfileSchema(await res.json());
+                expect(body.profile.username).toBe(TARGET_USERNAME);
+                expect(body.profile.following).toBe(false);
+            });
+
+            await test.step('verifies unfollow status persistence', async () => {
+                const res = await request.get(`/api/profiles/${TARGET_USERNAME}`, { headers: authHeader });
                 expect(res.status()).toBe(200);
 
                 const body = assertProfileSchema(await res.json());

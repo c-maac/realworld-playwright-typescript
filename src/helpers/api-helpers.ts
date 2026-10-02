@@ -45,3 +45,9 @@ export const registerUser = async (request: APIRequestContext): Promise<AuthSess
 export const getAuthHeader = (token: string) => ({
     Authorization: `Token ${token}`,
 });
+
+export const getUniqueStamp = (): string => {
+    const timestamp = Date.now();
+    const entropy = Math.floor(Math.random() * 1000000);
+    return `${timestamp}_${entropy}`;
+};

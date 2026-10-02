@@ -1,3 +1,5 @@
+import { getUniqueStamp } from "./api-helpers";
+
 export interface TestUser {
     username: string;
     email: string;
@@ -5,10 +7,9 @@ export interface TestUser {
 }
 
 export const createRandomUser = (): TestUser => {
-    const timestamp = Date.now();
     return {
-        username: `user_${timestamp}`,
-        email: `user_${timestamp}@test.com`,
+        username: `user_${getUniqueStamp()}`,
+        email: `user_${getUniqueStamp()}@test.com`,
         password: 'Password123!',
     };
 };

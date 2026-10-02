@@ -1,36 +1,24 @@
 import { test, expect } from '@playwright/test';
-import { AuthSession, registerUser, getAuthHeader } from '../../../src/helpers/api-helpers';
+import { AuthSession, registerUser, getAuthHeader, getUniqueStamp } from '../../../src/helpers/api-helpers';
 import {
     assertCommentSchema,
     assertMultipleCommentsSchema,
     assertErrorSchema,
 } from '../../../src/helpers/schema-helpers';
 
-/**
- * Setup Isolation Strategy for /api/articles/:slug/comments:
- * 
- * 1. Read & Validation Operations (beforeAll):
- *    Uses a shared user session to perform GET queries, unauthenticated checks, 
- *    validation failures (422), and forbidden access attempts (403). These operations 
- *    do not mutate user-owned state, maximizing execution speed.
- * 
- * 2. State-Mutating Lifecycle Operations (beforeEach):
- *    Provisions a fresh author session for CRUD operations to isolate created 
- *    and deleted comments from polluting shared feeds or parallel workers.
- */
-
 const PRESEEDED_SLUG = 'how-to-learn-javascript-efficiently';
 
 test.describe('/api/articles/:slug/comments', () => {
     test.use({ baseURL: 'https://api.realworld.show' });
 
-    let sharedUser: AuthSession;
-
-    test.beforeAll(async ({ request }) => {
-        sharedUser = await registerUser(request);
-    });
-
     test.describe('Read & Validation Operations', () => {
+
+        let sharedUser: AuthSession;
+
+        test.beforeAll(async ({ request }) => {
+            sharedUser = await registerUser(request);
+        });
+
         test('fetches list of comments for an article (unauthenticated) @smoke', async ({ request }) => {
             const res = await request.get(`/api/articles/${PRESEEDED_SLUG}/comments`);
             expect(res.status()).toBe(200);
@@ -52,7 +40,7 @@ test.describe('/api/articles/:slug/comments', () => {
         });
 
         test('returns 404 on commenting on non-existent article @negative', async ({ request }) => {
-            const nonExistentSlug = `non-existent-${Date.now()}`;
+            const nonExistentSlug = `non-existent-${getUniqueStamp()}`;
             const res = await request.post(`/api/articles/${nonExistentSlug}/comments`, {
                 headers: getAuthHeader(sharedUser.token),
                 data: {
@@ -136,7 +124,7 @@ test.describe('/api/articles/:slug/comments', () => {
 
         test('manages comment lifecycle (create, verify list, delete) @smoke', async ({ request }) => {
             const authHeader = getAuthHeader(author.token);
-            const commentText = `Automation comment ${Date.now()}`;
+            const commentText = `Automation comment ${getUniqueStamp()}`;
             let createdCommentId: number;
 
             await test.step('adds a comment to the article', async () => {

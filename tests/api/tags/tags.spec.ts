@@ -9,7 +9,11 @@ test.describe('/api/tags', () => {
         expect(res.status()).toBe(200);
 
         const body = assertTagsSchema(await res.json());
-        expect(body.tags.length).toBeGreaterThan(0);
+        // Enforce non-empty tag set to prevent false-positive pass on sanitization loop
+        expect(
+            body.tags.length,
+            'PRE-SEEDED DATA MISSING: Expected GET /api/tags to return pre-populated tags.'
+        ).toBeGreaterThan(0);
 
         // Ensure tags are unique and sanitized non-empty strings
         const uniqueTags = new Set(body.tags);

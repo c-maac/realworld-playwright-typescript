@@ -1,36 +1,23 @@
 import { test, expect } from '@playwright/test';
-import { AuthSession, registerUser, getAuthHeader } from '../../../src/helpers/api-helpers';
+import { AuthSession, registerUser, getAuthHeader, getUniqueStamp } from '../../../src/helpers/api-helpers';
 import {
     assertArticleSchema,
     assertErrorSchema,
     assertMultipleArticlesSchema,
 } from '../../../src/helpers/schema-helpers';
 
-/**
- * Setup Isolation Strategy for /api/articles/:slug/favorite:
- * 
- * 1. Read & Validation Operations (beforeAll):
- *    Uses a shared user session to perform GET queries, unauthenticated checks, 
- *    and rejected validation/error requests (401, 404). These operations do not 
- *    mutate user-owned state, maximizing test suite speed.
- * 
- * 2. State-Mutating Lifecycle Operations (beforeEach):
- *    Provisions a fresh user session for favorite, unfavorite, and idempotency 
- *    operations to isolate favorited state from polluting other tests or parallel workers.
- */
-
 const PRESEEDED_SLUG = 'how-to-learn-javascript-efficiently';
 
 test.describe('/api/articles/:slug/favorite', () => {
     test.use({ baseURL: 'https://api.realworld.show' });
 
-    let sharedUser: AuthSession;
-
-    test.beforeAll(async ({ request }) => {
-        sharedUser = await registerUser(request);
-    });
-
     test.describe('Read & Validation Operations', () => {
+        let sharedUser: AuthSession;
+
+        test.beforeAll(async ({ request }) => {
+            sharedUser = await registerUser(request);
+        });
+
         test('returns 401 when favoriting without auth token @negative', async ({ request }) => {
             const res = await request.post(`/api/articles/${PRESEEDED_SLUG}/favorite`);
             expect(res.status()).toBe(401);
@@ -42,7 +29,7 @@ test.describe('/api/articles/:slug/favorite', () => {
         });
 
         test('returns 404 when favoriting non-existent article @negative', async ({ request }) => {
-            const nonExistentSlug = `non-existent-${Date.now()}`;
+            const nonExistentSlug = `non-existent-${getUniqueStamp()}`;
             const res = await request.post(`/api/articles/${nonExistentSlug}/favorite`, {
                 headers: getAuthHeader(sharedUser.token),
             });

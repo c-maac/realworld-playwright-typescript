@@ -5,30 +5,11 @@ import {
     assertErrorSchema,
 } from '../../../src/helpers/schema-helpers';
 
-/**
- * Setup Isolation Strategy for /api/articles/feed:
- * 
- * 1. Read & Validation Operations (beforeAll):
- *    Uses a shared user session to perform unauthenticated checks and negative 
- *    validation tests (401). These operations do not mutate state, maximizing execution speed.
- * 
- * 2. State-Mutating Lifecycle Operations (beforeEach):
- *    Provisions a fresh user session for feed lifecycle tests (following users, 
- *    populating personalized feeds, and verifying pagination) to prevent follow state 
- *    from polluting parallel workers or other test scenarios.
- */
-
 const TARGET_AUTHOR_1 = 'johndoe';
 const TARGET_AUTHOR_2 = 'janesmith';
 
 test.describe('/api/articles/feed', () => {
     test.use({ baseURL: 'https://api.realworld.show' });
-
-    let sharedUser: AuthSession;
-
-    test.beforeAll(async ({ request }) => {
-        sharedUser = await registerUser(request);
-    });
 
     test.describe('Read & Validation Operations', () => {
         test('returns 401 when accessing feed without authorization @negative', async ({ request }) => {

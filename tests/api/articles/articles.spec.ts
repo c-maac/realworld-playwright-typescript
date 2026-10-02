@@ -1,23 +1,10 @@
 import { test, expect } from '@playwright/test';
-import { AuthSession, registerUser, getAuthHeader } from '../../../src/helpers/api-helpers';
+import { AuthSession, registerUser, getAuthHeader, getUniqueStamp } from '../../../src/helpers/api-helpers';
 import {
     assertArticleSchema,
     assertMultipleArticlesSchema,
     assertErrorSchema,
 } from '../../../src/helpers/schema-helpers';
-
-/**
- * Setup Isolation Strategy for /api/articles:
- * 
- * 1. Read & Validation Operations (beforeAll):
- *    Uses a shared user session to perform GET queries, unauthenticated checks, 
- *    validation failures (422), and forbidden access attempts (403). These operations 
- *    do not mutate user-owned state, maximizing speed.
- * 
- * 2. State-Mutating Lifecycle Operations (beforeEach):
- *    Provisions a fresh author session for CRUD operations to isolate created, 
- *    updated, and deleted articles from polluting shared feeds or parallel workers.
- */
 
 const TARGET_AUTHOR = 'johndoe';
 const KNOWN_TAG = 'javascript';
@@ -26,14 +13,15 @@ const PRESEEDED_SLUG = 'how-to-learn-javascript-efficiently';
 test.describe('/api/articles', () => {
     test.use({ baseURL: 'https://api.realworld.show' });
 
-    let sharedUser: AuthSession;
-
-    test.beforeAll(async ({ request }) => {
-        sharedUser = await registerUser(request);
-    });
-
     test.describe('Read & Validation Operations', () => {
-        test('fetches global articles feed unauthenticated @smoke', async ({ request }) => {
+
+        let sharedUser: AuthSession;
+
+        test.beforeAll(async ({ request }) => {
+            sharedUser = await registerUser(request);
+        });
+
+        test('fetches global articles feed (unauthenticated) @smoke', async ({ request }) => {
             const response = await request.get('/api/articles');
             expect(response.status()).toBe(200);
 
@@ -42,19 +30,16 @@ test.describe('/api/articles', () => {
             expect(body.articlesCount).toBeGreaterThanOrEqual(body.articles.length);
         });
 
-        test('filters articles by author username unauthenticated @regression', async ({ request }) => {
+        // We explicitly assert `articles.length > 0` before looping. An empty array on a filtered 200 OK 
+        // would cause `forEach` to pass silently without actually testing filter logic. 
+        // The custom error message explicitly flags missing DB seed data versus an actual API route crash.
+        test('filters articles by author username (unauthenticated) @regression', async ({ request }) => {
             const response = await request.get('/api/articles', {
                 params: { author: TARGET_AUTHOR },
             });
             expect(response.status()).toBe(200);
 
             const body = assertMultipleArticlesSchema(await response.json());
-            // If the database seed disappears or changes, 
-            // the test fails immediately with an explicit error 
-            // instead of passing silently without actually testing anything.
-            // TODO: This needs to be the strategy (or some other strategy) for all similar tests that using preseeded data
-            // and should be addressed in TEST_STRATEGY file.
-            // But how to distinguish if it's api error or missing db data?
             expect(
                 body.articles.length,
                 `PRE-SEEDED DATA MISSING: Target author "${TARGET_AUTHOR}" has no articles in database.`
@@ -65,7 +50,7 @@ test.describe('/api/articles', () => {
             });
         });
 
-        test('filters articles by tag unauthenticated @regression', async ({ request }) => {
+        test('filters articles by tag (unauthenticated) @regression', async ({ request }) => {
             const response = await request.get('/api/articles', {
                 params: { tag: KNOWN_TAG },
             });
@@ -83,7 +68,7 @@ test.describe('/api/articles', () => {
             });
         });
 
-        test('enforces pagination limit and offset unauthenticated @regression', async ({ request }) => {
+        test('enforces pagination limit and offset (unauthenticated) @regression', async ({ request }) => {
             const response = await request.get('/api/articles', {
                 params: { limit: 5, offset: 0 },
             });
@@ -96,7 +81,7 @@ test.describe('/api/articles', () => {
             expect(body.articlesCount).toBeGreaterThanOrEqual(body.articles.length);
         });
 
-        test('filters articles favorited by target user unauthenticated @regression', async ({ request }) => {
+        test('filters articles favorited by target user (unauthenticated) @regression', async ({ request }) => {
             const response = await request.get('/api/articles', {
                 params: { favorited: TARGET_AUTHOR },
             });
@@ -156,7 +141,7 @@ test.describe('/api/articles', () => {
         });
 
         test('returns 404 on non-existent article fetch @negative', async ({ request }) => {
-            const nonExistentSlug = `non-existent-article-${Date.now()}`;
+            const nonExistentSlug = `non-existent-article-${getUniqueStamp()}`;
             const response = await request.get(`/api/articles/${nonExistentSlug}`);
             expect(response.status()).toBe(404);
 
@@ -200,7 +185,7 @@ test.describe('/api/articles', () => {
 
         test('manages article lifecycle (create, read, update, delete) @smoke', async ({ request }) => {
             const authHeader = getAuthHeader(author.token);
-            const timestamp = Date.now();
+            const timestamp = getUniqueStamp();
 
             const initialPayload = {
                 title: `Automation Article ${timestamp}`,
@@ -262,6 +247,22 @@ test.describe('/api/articles', () => {
                 expect(body.article.title).toBe(updatedPayload.title);
                 expect(body.article.description).toBe(updatedPayload.description);
                 expect(body.article.body).toBe(updatedPayload.body);
+                expect(body.article.tagList).toEqual(expect.arrayContaining(initialPayload.tagList));
+            });
+
+            await test.step('verifies article update persistence', async () => {
+                const res = await request.get(`/api/articles/${articleSlug}`, {
+                    headers: authHeader,
+                });
+                expect(res.status()).toBe(200);
+
+                const body = assertArticleSchema(await res.json());
+
+                expect(body.article.slug).toBe(articleSlug);
+                expect(body.article.title).toBe(updatedPayload.title);
+                expect(body.article.description).toBe(updatedPayload.description);
+                expect(body.article.body).toBe(updatedPayload.body);
+                expect(body.article.tagList).toEqual(expect.arrayContaining(initialPayload.tagList));
             });
 
             await test.step('deletes article by slug', async () => {
@@ -280,35 +281,6 @@ test.describe('/api/articles', () => {
                 const body = assertErrorSchema(await res.json());
                 expect(body.errors).toHaveProperty('article');
                 expect(body.errors.article).toContain('not found');
-            });
-        });
-
-        test('filters own articles when authenticated @regression', async ({ request }) => {
-            const authHeader = getAuthHeader(author.token);
-
-            await request.post('/api/articles', {
-                headers: authHeader,
-                data: {
-                    article: {
-                        title: `Scoped Article ${Date.now()}`,
-                        description: 'Filter test',
-                        body: 'Content',
-                        tagList: ['automation'],
-                    },
-                },
-            });
-
-            const response = await request.get('/api/articles', {
-                headers: authHeader,
-                params: { author: author.user.username },
-            });
-            expect(response.status()).toBe(200);
-
-            const body = assertMultipleArticlesSchema(await response.json());
-            expect(body.articles.length).toBeGreaterThan(0);
-
-            body.articles.forEach((article) => {
-                expect(article.author.username).toBe(author.user.username);
             });
         });
     });

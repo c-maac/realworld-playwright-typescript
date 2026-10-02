@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { AuthSession, registerUser } from '../../../src/helpers/api-helpers';
+import { AuthSession, getUniqueStamp, registerUser } from '../../../src/helpers/api-helpers';
 import {
     assertUserSchema,
     assertErrorSchema,
@@ -60,7 +60,7 @@ test.describe('/api/users/login', () => {
         const response = await request.post('/api/users/login', {
             data: {
                 user: {
-                    email: `nonexistent_${Date.now()}@test.com`,
+                    email: `nonexistent_${getUniqueStamp()}@test.com`,
                     password: 'AnyPassword123!',
                 },
             },

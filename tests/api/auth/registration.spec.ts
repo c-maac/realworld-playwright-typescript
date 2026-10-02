@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { createRandomUser } from '../../../src/helpers/user-factory';
-import { registerUser } from '../../../src/helpers/api-helpers';
+import { getUniqueStamp, registerUser } from '../../../src/helpers/api-helpers';
 import {
     assertUserSchema,
     assertErrorSchema,
@@ -30,7 +30,7 @@ test.describe('/api/users', () => {
     const invalidPayloads = [
         {
             name: 'missing username and password',
-            payload: { email: `user_${Date.now()}@test.com` },
+            payload: { email: `user_${getUniqueStamp()}@test.com` },
             expectedErrors: {
                 username: "can't be blank",
                 password: "can't be blank",
@@ -57,8 +57,8 @@ test.describe('/api/users', () => {
         {
             name: 'password under 8 characters',
             payload: {
-                username: `user_${Date.now()}`,
-                email: `user_${Date.now()}@test.com`,
+                username: `user_${getUniqueStamp()}`,
+                email: `user_${getUniqueStamp()}@test.com`,
                 password: 'short7c',
             },
             expectedErrors: {
@@ -119,7 +119,7 @@ test.describe('/api/users', () => {
         const response = await request.post('/api/users', {
             data: {
                 user: {
-                    username: `user_${Date.now()}`,
+                    username: `user_${getUniqueStamp()}`,
                     email: existingSession.user.email,
                     password: 'Password123!',
                 },
