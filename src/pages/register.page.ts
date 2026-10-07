@@ -1,5 +1,6 @@
 import { Page, Locator } from '@playwright/test';
 import { BasePage } from './base.page';
+import { TestUser } from '../helpers/user-factory';
 
 export class RegisterPage extends BasePage {
 
@@ -22,10 +23,10 @@ export class RegisterPage extends BasePage {
         await this.navigateTo('/register');
     }
 
-    async register(username: string, email: string, pass: string) {
-        await this.usernameInput.fill(username);
-        await this.emailInput.fill(email);
-        await this.passwordInput.fill(pass);
+    async register(user: TestUser) {
+        await this.usernameInput.fill(user.username);
+        await this.emailInput.fill(user.email);
+        await this.passwordInput.fill(user.password);
         await this.submitButton.click();
     }
 }

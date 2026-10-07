@@ -1,9 +1,5 @@
 import { test, expect } from '../../../src/fixtures/fixtures';
-
-
-// Local helper for URL slug matching.
-// TODO: Move to shared utility module if used across multiple spec files.
-const toSlug = (title: string) => new RegExp(`/article/${title.toLowerCase().replace(/\s+/g, '-')}`);
+import { toSlug } from '../../../src/helpers/api-helpers';
 
 test.describe('Guest State Navigation', () => {
   test.beforeEach(async ({ publicHomePage }) => {

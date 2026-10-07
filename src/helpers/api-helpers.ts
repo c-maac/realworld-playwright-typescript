@@ -1,4 +1,3 @@
-// helpers/api-helpers.ts
 import { APIRequestContext } from '@playwright/test';
 import { createRandomUser, TestUser } from './user-factory';
 
@@ -50,4 +49,18 @@ export const getUniqueStamp = (): string => {
     const timestamp = Date.now();
     const entropy = Math.floor(Math.random() * 1000000);
     return `${timestamp}_${entropy}`;
+};
+
+
+// Helper to match article URLs regardless of slug generation differences:
+// UI creation converts underscores in timestamps to hyphens (-), whereas 
+// API creation preserves literal underscores (_). Replacing spaces and 
+// underscores with [-_] creates a flexible regex matching both routes.
+export const toSlug = (title: string) => {
+    const pattern = title
+        .toLowerCase()
+        .trim()
+        .replace(/[\s_]+/g, '[-_]');
+
+    return new RegExp(`/article/${pattern}`);
 };

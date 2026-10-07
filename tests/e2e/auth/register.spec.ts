@@ -1,4 +1,5 @@
 import { test, expect } from '../../../src/fixtures/fixtures';
+import { createRandomUser } from '../../../src/helpers/user-factory';
 
 test.describe('Registration Flow', () => {
 
@@ -6,28 +7,23 @@ test.describe('Registration Flow', () => {
 
         await registerPage.goto();
 
-        // Generate unique credentials to avoid collisions on repeat runs
-        const timestamp = Date.now();
-        const uniqueUsername = `user_${timestamp}`;
-        const uniqueEmail = `user_${timestamp}@test.com`;
-        const password = 'Password123!';
-
-        await registerPage.register(uniqueUsername, uniqueEmail, password);
+        const newUser = createRandomUser();
+        await registerPage.register(newUser);
 
         await expect(page).toHaveURL('/');
-        await expect(page.getByRole('link', { name: uniqueUsername })).toBeVisible();
+        await expect(page.getByRole('link', { name: newUser.username })).toBeVisible();
     });
 
     test('display error message on duplicate registration', async ({ page, registerPage }) => {
 
         await registerPage.goto();
 
-        // Intercept registration API call to mock a 409 Conflict response.
-        // Network interception is used here because the demo backend lacks persistent 
-        // uniqueness validation, preventing native 409 duplicate errors through the UI.
+        // Mock a 422 API error response to test UI error handling gracefully.
+        // Interception is necessary because the demo backend does not consistently enforce 
+        // database uniqueness, making mock responses the most reliable way to verify UI error displays.
         await page.route('**/api/users', async (route) => {
             await route.fulfill({
-                status: 409,
+                status: 422,
                 contentType: 'application/json',
                 body: JSON.stringify({
                     errors: {
@@ -37,7 +33,8 @@ test.describe('Registration Flow', () => {
             });
         });
 
-        await registerPage.register('user_duplicate', 'user_duplicate@test.com', 'Password123!');
+        const existingUser = createRandomUser();
+        await registerPage.register(existingUser);
 
         await expect(registerPage.errorMessages).toBeVisible();
         await expect(registerPage.errorMessages).toContainText('email is already taken');

@@ -1,4 +1,5 @@
 import { test, expect } from '../../../src/fixtures/fixtures';
+import { getUniqueStamp } from '../../../src/helpers/api-helpers';
 
 test.describe('Engagement', () => {
     // Uses a known static article because backend session isolation prevents cross-user 
@@ -42,7 +43,7 @@ test.describe('Engagement', () => {
 
         await authenticatedPage.goto(`/article/${publicArticleSlug}`);
 
-        const commentText = `Automation Test Comment - ${Date.now()}`;
+        const commentText = `Automation Test Comment - ${getUniqueStamp()}`;
 
         await expect(articlePage.commentInput).toBeVisible();
         const initialCount = await articlePage.commentCards.count();

@@ -1,4 +1,5 @@
 import { test, expect } from '../../../src/fixtures/fixtures';
+import { getAuthHeader } from '../../../src/helpers/api-helpers';
 
 test.describe('Personalized Feed', () => {
 
@@ -8,10 +9,14 @@ test.describe('Personalized Feed', () => {
     }) => {
         const targetAuthor = 'johndoe';
 
-        const jwt = await authenticatedPage.evaluate(() => localStorage.getItem('jwtToken'));
+        const token = await authenticatedPage.evaluate(() => localStorage.getItem('jwtToken'));
+
+        if (!token) {
+            throw new Error(`Failed to follow user ${targetAuthor} No JWT token found in localStorage.`);
+        }
         const followResponse = await request.post(`https://api.realworld.show/api/profiles/${targetAuthor}/follow`, {
             headers: {
-                'Authorization': `Token ${jwt}`,
+                ...getAuthHeader(token),
                 'Content-Type': 'application/json',
             },
         });

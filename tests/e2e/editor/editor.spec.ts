@@ -1,24 +1,35 @@
+import { APIRequestContext, Page } from '@playwright/test';
 import { test, expect } from '../../../src/fixtures/fixtures';
+import { getAuthHeader, getUniqueStamp, toSlug } from '../../../src/helpers/api-helpers';
 
-// Keeping this local helper simple for edit/delete tests.
-// TODO: Extract to custom fixture if additional specs need API article seeding.
-async function seedArticleViaApi(request: any, page: any, articleData: { title: string; description: string; body: string; tagList: string[] }) {
+interface ArticleData {
+    title: string;
+    description: string;
+    body: string;
+    tagList: string[];
+}
+
+//Seeds an article directly via API using the active session's JWT token stored in localStorage.
+async function seedArticleViaApi(request: APIRequestContext, page: Page, articleData: ArticleData) {
     const token = await page.evaluate(() => localStorage.getItem('jwtToken'));
+
+    if (!token) {
+        throw new Error('Cannot seed article: No JWT token found in localStorage.');
+    }
+
     const response = await request.post('https://api.realworld.show/api/articles', {
         headers: {
-            'Authorization': `Token ${token}`,
+            ...getAuthHeader(token),
             'Content-Type': 'application/json',
         },
         data: { article: articleData },
     });
+
     expect(response.ok()).toBeTruthy();
     const { article } = await response.json();
     return article;
 }
 
-// Local helper for URL slug matching.
-// TODO: Move to shared utility module if used across multiple spec files.
-const toSlug = (title: string) => new RegExp(`/article/${title.toLowerCase().replace(/\s+/g, '-')}`);
 
 test.describe('Article Lifecycle', () => {
 
@@ -26,7 +37,7 @@ test.describe('Article Lifecycle', () => {
 
         await editorPage.goto();
 
-        const timestamp = Date.now();
+        const timestamp = getUniqueStamp();
         const articleTitle = `Test Article ${timestamp}`;
         const articleDescription = 'E2E test description';
         const articleBody = 'Main body content written in markdown format.';
@@ -50,7 +61,7 @@ test.describe('Article Lifecycle', () => {
 
     test('edit existing article title', async ({ authenticatedPage, request, editorPage }) => {
 
-        const timestamp = Date.now();
+        const timestamp = getUniqueStamp();
         const initialTitle = `Original Article ${timestamp}`;
         const updatedTitle = `Updated Article ${timestamp}`;
 
@@ -73,7 +84,7 @@ test.describe('Article Lifecycle', () => {
 
     test('delete existing article', async ({ authenticatedPage, request }) => {
 
-        const timestamp = Date.now();
+        const timestamp = getUniqueStamp();
         const articleTitle = `Delete Article ${timestamp}`;
 
         const article = await seedArticleViaApi(request, authenticatedPage, {

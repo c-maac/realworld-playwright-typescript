@@ -4,6 +4,7 @@ import { EditorPage } from '../pages/editor.page';
 import { ArticlePage } from '../pages/article.page';
 import { LoginPage } from '../pages/login.page';
 import { HomePage } from '../pages/home.page';
+import { registerUser } from '../helpers/api-helpers';
 
 type AppFixtures = {
     authenticatedPage: Page;
@@ -18,25 +19,11 @@ type AppFixtures = {
 export const test = base.extend<AppFixtures>({
     // Base authenticated page fixture: registers a fresh user and yields the authenticated page context
     authenticatedPage: async ({ page, request }, use) => {
-        const timestamp = Date.now();
-        const uniqueUsername = `user_${timestamp}`;
-        const uniqueEmail = `user_${timestamp}@test.com`;
-        const password = 'Password123!';
+       const { token } = await registerUser(request);
 
-        const response = await request.post('https://api.realworld.show/api/users', {
-            data: {
-                user: {
-                    username: uniqueUsername,
-                    email: uniqueEmail,
-                    password: password,
-                },
-            },
-        });
-        const { user } = await response.json();
-
-        await page.addInitScript((token) => {
-            window.localStorage.setItem('jwtToken', token);
-        }, user.token);
+        await page.addInitScript((jwt) => {
+            window.localStorage.setItem('jwtToken', jwt);
+        }, token);
 
         await page.goto('/');
         await use(page);
