@@ -23,13 +23,9 @@ test.describe('/api/articles/feed', () => {
     });
 
     test.describe('State-Mutating Lifecycle Operations', () => {
-        let user: AuthSession;
-
-        test.beforeEach(async ({ request }) => {
-            user = await registerUser(request);
-        });
 
         test('manages feed lifecycle (empty check, follow users, verify feed, pagination) @smoke', async ({ request }) => {
+            const user = await registerUser(request);
             const authHeader = getAuthHeader(user.token);
 
             await test.step('verifies newly created user has an empty feed', async () => {

@@ -123,13 +123,9 @@ test.describe('/api/user', () => {
     });
 
     test.describe('State-Mutating Updates', () => {
-        let session: AuthSession;
-
-        test.beforeEach(async ({ request }) => {
-            session = await registerUser(request);
-        });
 
         test('updates username and verifies public profile resolution @smoke', async ({ request }) => {
+            const session = await registerUser(request);
             const authHeader = getAuthHeader(session.token);
             const oldUsername = session.user.username;
             const newUsername = `updated_user_${getUniqueStamp()}`;
@@ -176,6 +172,7 @@ test.describe('/api/user', () => {
         });
 
         test('updates email and logins with new email @smoke', async ({ request }) => {
+            const session = await registerUser(request);
             const authHeader = getAuthHeader(session.token);
             const newEmail = `updated_${getUniqueStamp()}@test.com`;
 
@@ -212,6 +209,7 @@ test.describe('/api/user', () => {
         });
 
         test('updates password and logins with new password @smoke', async ({ request }) => {
+            const session = await registerUser(request);
             const newPassword = `NewPass_${getUniqueStamp()}`;
 
             await test.step('updates password via PUT /api/user', async () => {
@@ -256,6 +254,7 @@ test.describe('/api/user', () => {
         });
 
         test('updates profile bio and image @regression', async ({ request }) => {
+            const session = await registerUser(request);
             const authHeader = getAuthHeader(session.token);
             const updatedBio = `Updated Bio - ${getUniqueStamp()}`;
             const updatedImage = 'https://api.realworld.show/images/demo-avatar.png';
@@ -281,6 +280,7 @@ test.describe('/api/user', () => {
         });
 
         test('normalizes empty string bio and image to null @regression', async ({ request }) => {
+            const session = await registerUser(request);
             const authHeader = getAuthHeader(session.token);
 
             const response = await request.put('/api/user', {
@@ -309,6 +309,7 @@ test.describe('/api/user', () => {
 
         for (const { name, password } of validPasswords) {
             test(`updates password with ${name} @regression`, async ({ request }) => {
+                const session = await registerUser(request);
                 const response = await request.put('/api/user', {
                     headers: getAuthHeader(session.token),
                     data: { user: { password } },

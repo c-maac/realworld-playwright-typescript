@@ -87,13 +87,9 @@ test.describe('/api/profiles/:username', () => {
     });
 
     test.describe('State-Mutating Lifecycle Operations', () => {
-        let follower: AuthSession;
-
-        test.beforeEach(async ({ request }) => {
-            follower = await registerUser(request);
-        });
 
         test('manages follow and unfollow relationship @smoke', async ({ request }) => {
+            const follower = await registerUser(request);
             const authHeader = getAuthHeader(follower.token);
 
             await test.step('checks initial follow status', async () => {

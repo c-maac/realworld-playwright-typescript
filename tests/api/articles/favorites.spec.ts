@@ -42,13 +42,9 @@ test.describe('/api/articles/:slug/favorite', () => {
     });
 
     test.describe('State-Mutating Lifecycle Operations', () => {
-        let user: AuthSession;
-
-        test.beforeEach(async ({ request }) => {
-            user = await registerUser(request);
-        });
 
         test('manages favorite and unfavorite lifecycle @smoke', async ({ request }) => {
+            const user = await registerUser(request);
             const authHeader = getAuthHeader(user.token);
             let initialFavoritesCount: number;
 
@@ -105,6 +101,7 @@ test.describe('/api/articles/:slug/favorite', () => {
         });
 
         test('handles duplicate favorite and unfavorite calls idempotently @regression', async ({ request }) => {
+            const user = await registerUser(request);
             const authHeader = getAuthHeader(user.token);
 
             // 1. Initial Favorite Call
