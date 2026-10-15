@@ -6,7 +6,6 @@ import {
 } from '../../../src/helpers/schema-helpers';
 
 test.describe('/api/users/login', () => {
-    test.use({ baseURL: 'https://api.realworld.show' });
 
     let session: AuthSession;
 

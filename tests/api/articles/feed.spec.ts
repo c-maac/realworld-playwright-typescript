@@ -9,7 +9,6 @@ const TARGET_AUTHOR_1 = 'johndoe';
 const TARGET_AUTHOR_2 = 'janesmith';
 
 test.describe('/api/articles/feed', () => {
-    test.use({ baseURL: 'https://api.realworld.show' });
 
     test.describe('Read & Validation Operations', () => {
         test('returns 401 when accessing feed without authorization @negative', async ({ request }) => {

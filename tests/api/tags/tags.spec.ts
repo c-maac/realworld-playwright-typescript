@@ -2,7 +2,6 @@ import { test, expect } from '@playwright/test';
 import { assertTagsSchema } from '../../../src/helpers/schema-helpers';
 
 test.describe('/api/tags', () => {
-    test.use({ baseURL: 'https://api.realworld.show' });
 
     test('fetches tags list @smoke', async ({ request }) => {
         const res = await request.get('/api/tags');

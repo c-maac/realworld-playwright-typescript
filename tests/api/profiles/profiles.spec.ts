@@ -6,7 +6,6 @@ import { assertErrorSchema, assertProfileSchema } from '../../../src/helpers/sch
 const TARGET_USERNAME = 'johndoe';
 
 test.describe('/api/profiles/:username', () => {
-    test.use({ baseURL: 'https://api.realworld.show' });
 
     test.describe('Read & Validation Operations', () => {
 

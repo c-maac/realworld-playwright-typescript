@@ -7,7 +7,6 @@ import {
 } from '../../../src/helpers/schema-helpers';
 
 test.describe('/api/users', () => {
-    test.use({ baseURL: 'https://api.realworld.show' });
 
     test('registers a new user @smoke', async ({ request }) => {
         const newUser = createRandomUser();

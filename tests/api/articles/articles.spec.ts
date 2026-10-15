@@ -11,7 +11,6 @@ const KNOWN_TAG = 'javascript';
 const PRESEEDED_SLUG = 'how-to-learn-javascript-efficiently';
 
 test.describe('/api/articles', () => {
-    test.use({ baseURL: 'https://api.realworld.show' });
 
     test.describe('Read & Validation Operations', () => {
 
