@@ -22,6 +22,16 @@ on:
 
   # Enables manual execution from the GitHub Actions UI
   workflow_dispatch:
+    inputs:
+      trace_mode:
+        description: 'Playwright Trace Mode'
+        required: true
+        default: 'on-first-retry'
+        type: choice
+        options:
+          - on-first-retry
+          - retain-on-failure
+          - 'off'
 
   # Allows external deployment pipelines to trigger the tests
   repository_dispatch:
@@ -63,10 +73,10 @@ jobs:
         run: |
           if [ "${{ github.event_name }}" == "push" ] || [ "${{ github.event_name }}" == "pull_request" ]; then
             echo "Running smoke tests only..."
-            npx playwright test --grep "@smoke"
+            npx playwright test --grep "@smoke" --trace ${{ inputs.trace_mode || 'on-first-retry' }}
           else
             echo "Running full test suite..."
-            npx playwright test
+            npx playwright test --trace ${{ inputs.trace_mode || 'on-first-retry' }}
           fi
 
       - name: Upload HTML Report to GitHub Pages
