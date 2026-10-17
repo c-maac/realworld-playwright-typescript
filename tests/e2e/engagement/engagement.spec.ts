@@ -7,7 +7,7 @@ test.describe('Engagement', () => {
     // to the active test session, eliminating state pollution across test runs.
     const publicArticleSlug = 'how-to-learn-javascript-efficiently';
 
-    test('toggle article favorite state', async ({
+    test('toggle article favorite state @smoke', async ({
         authenticatedPage,
         articlePage,
     }) => {
@@ -22,7 +22,7 @@ test.describe('Engagement', () => {
         await expect(articlePage.favoriteArticleButton).toHaveText(/\bfavorite\b/i);
     });
 
-    test('toggle author follow state', async ({
+    test('toggle author follow state @smoke', async ({
         authenticatedPage,
         articlePage,
     }) => {
@@ -36,7 +36,7 @@ test.describe('Engagement', () => {
         await expect(articlePage.followAuthorButton).toHaveText(/\bfollow\b/i);
     });
 
-    test('post and delete comment on article', async ({
+    test('post and delete comment on article @smoke', async ({
         authenticatedPage,
         articlePage,
     }) => {

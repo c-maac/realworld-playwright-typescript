@@ -34,7 +34,7 @@ test.describe('/api/users/login', () => {
         expect(body.user.image).toBeNull();
     });
 
-    test('returns 401 on invalid password @negative', async ({ request }) => {
+    test('returns 401 on invalid password', async ({ request }) => {
         const response = await request.post('/api/users/login', {
             data: {
                 user: {
@@ -55,7 +55,7 @@ test.describe('/api/users/login', () => {
 
     // Null-Safety: Confirms backend gracefully handles missing DB records (prevents 500s).
     // Security: Enforces identical generic error payload to prevent user enumeration attacks.
-    test('returns 401 on non-existent email @negative', async ({ request }) => {
+    test('returns 401 on non-existent email', async ({ request }) => {
         const response = await request.post('/api/users/login', {
             data: {
                 user: {
@@ -72,7 +72,7 @@ test.describe('/api/users/login', () => {
         expect(body.errors.credentials).toContain('invalid');
     });
 
-    test('returns 422 on blank payload fields @negative', async ({ request }) => {
+    test('returns 422 on blank payload fields', async ({ request }) => {
         const response = await request.post('/api/users/login', {
             data: {
                 user: {

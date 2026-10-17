@@ -21,7 +21,7 @@ test.describe('Guest State Navigation', () => {
     await expect(publicHomePage.personalisedFeedTab).not.toBeVisible();
   });
 
-  test('navigate to sign in page from header link', async ({ publicHomePage, page }) => {
+  test('navigate to sign in page from header link @smoke', async ({ publicHomePage, page }) => {
 
     await publicHomePage.header.clickSignIn();
 
@@ -29,7 +29,7 @@ test.describe('Guest State Navigation', () => {
     await expect(page.getByRole('heading', { name: 'Sign in' })).toBeVisible();
   });
 
-  test('navigate to sign up page from header link', async ({ publicHomePage, page }) => {
+  test('navigate to sign up page from header link @smoke', async ({ publicHomePage, page }) => {
 
     await publicHomePage.header.clickSignUp();
 

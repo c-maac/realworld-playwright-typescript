@@ -33,7 +33,7 @@ async function seedArticleViaApi(request: APIRequestContext, page: Page, article
 
 test.describe('Article Lifecycle', () => {
 
-    test('create and publish new article', async ({ editorPage, page }) => {
+    test('create and publish new article @smoke', async ({ editorPage, page }) => {
 
         await editorPage.goto();
 

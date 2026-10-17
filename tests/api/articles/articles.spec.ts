@@ -32,7 +32,7 @@ test.describe('/api/articles', () => {
         // We explicitly assert `articles.length > 0` before looping. An empty array on a filtered 200 OK 
         // would cause `forEach` to pass silently without actually testing filter logic. 
         // The custom error message explicitly flags missing DB seed data versus an actual API route crash.
-        test('filters articles by author username (unauthenticated) @regression', async ({ request }) => {
+        test('filters articles by author username (unauthenticated)', async ({ request }) => {
             const response = await request.get('/api/articles', {
                 params: { author: TARGET_AUTHOR },
             });
@@ -49,7 +49,7 @@ test.describe('/api/articles', () => {
             });
         });
 
-        test('filters articles by tag (unauthenticated) @regression', async ({ request }) => {
+        test('filters articles by tag (unauthenticated)', async ({ request }) => {
             const response = await request.get('/api/articles', {
                 params: { tag: KNOWN_TAG },
             });
@@ -67,7 +67,7 @@ test.describe('/api/articles', () => {
             });
         });
 
-        test('enforces pagination limit and offset (unauthenticated) @regression', async ({ request }) => {
+        test('enforces pagination limit and offset (unauthenticated)', async ({ request }) => {
             const response = await request.get('/api/articles', {
                 params: { limit: 5, offset: 0 },
             });
@@ -80,7 +80,7 @@ test.describe('/api/articles', () => {
             expect(body.articlesCount).toBeGreaterThanOrEqual(body.articles.length);
         });
 
-        test('filters articles favorited by target user (unauthenticated) @regression', async ({ request }) => {
+        test('filters articles favorited by target user (unauthenticated)', async ({ request }) => {
             const response = await request.get('/api/articles', {
                 params: { favorited: TARGET_AUTHOR },
             });
@@ -102,7 +102,7 @@ test.describe('/api/articles', () => {
             });
         });
 
-        test('returns 401 on article creation without auth token @negative', async ({ request }) => {
+        test('returns 401 on article creation without auth token', async ({ request }) => {
             const response = await request.post('/api/articles', {
                 data: {
                     article: {
@@ -119,7 +119,7 @@ test.describe('/api/articles', () => {
             expect(body.errors.token).toContain('is missing');
         });
 
-        test('returns 422 on article creation with missing required fields @negative', async ({ request }) => {
+        test('returns 422 on article creation with missing required fields', async ({ request }) => {
             const response = await request.post('/api/articles', {
                 headers: getAuthHeader(sharedUser.token),
                 data: {
@@ -139,7 +139,7 @@ test.describe('/api/articles', () => {
             expect(body.errors.body).toContain("can't be blank");
         });
 
-        test('returns 404 on non-existent article fetch @negative', async ({ request }) => {
+        test('returns 404 on non-existent article fetch', async ({ request }) => {
             const nonExistentSlug = `non-existent-article-${getUniqueStamp()}`;
             const response = await request.get(`/api/articles/${nonExistentSlug}`);
             expect(response.status()).toBe(404);
@@ -149,7 +149,7 @@ test.describe('/api/articles', () => {
             expect(body.errors.article).toContain('not found');
         });
 
-        test('returns 403 on article update by non-author @negative', async ({ request }) => {
+        test('returns 403 on article update by non-author', async ({ request }) => {
             const response = await request.put(`/api/articles/${PRESEEDED_SLUG}`, {
                 headers: getAuthHeader(sharedUser.token),
                 data: {
@@ -163,7 +163,7 @@ test.describe('/api/articles', () => {
             expect(body.errors.article).toContain('forbidden');
         });
 
-        test('returns 403 on article deletion by non-author @negative', async ({ request }) => {
+        test('returns 403 on article deletion by non-author', async ({ request }) => {
             const response = await request.delete(`/api/articles/${PRESEEDED_SLUG}`, {
                 headers: getAuthHeader(sharedUser.token),
             });

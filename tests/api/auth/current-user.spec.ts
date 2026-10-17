@@ -30,7 +30,7 @@ test.describe('/api/user', () => {
             expect(body.user.image).toBeNull();
         });
 
-        test('returns 401 on missing auth token (GET) @negative', async ({ request }) => {
+        test('returns 401 on missing auth token (GET)', async ({ request }) => {
             const response = await request.get('/api/user');
 
             expect(response.status()).toBe(401);
@@ -41,7 +41,7 @@ test.describe('/api/user', () => {
             expect(body.errors.token).toContain('is missing');
         });
 
-        test('returns 401 on invalid auth token (GET) @negative', async ({ request }) => {
+        test('returns 401 on invalid auth token (GET)', async ({ request }) => {
             const response = await request.get('/api/user', {
                 headers: { Authorization: 'Token invalid_token_12345' },
             });
@@ -54,7 +54,7 @@ test.describe('/api/user', () => {
             expect(body.errors.token).toContain('is missing');
         });
 
-        test('returns 401 on missing auth token (PUT) @negative', async ({ request }) => {
+        test('returns 401 on missing auth token (PUT)', async ({ request }) => {
             const response = await request.put('/api/user', {
                 data: { user: { bio: 'Unauthorized update attempt' } },
             });
@@ -106,7 +106,7 @@ test.describe('/api/user', () => {
         ];
 
         for (const { name, payload, expectedError } of invalidProfileFields) {
-            test(`returns 422 on ${name} @negative`, async ({ request }) => {
+            test(`returns 422 on ${name}`, async ({ request }) => {
                 const response = await request.put('/api/user', {
                     headers: getAuthHeader(session.token),
                     data: { user: payload },
@@ -253,7 +253,7 @@ test.describe('/api/user', () => {
             });
         });
 
-        test('updates profile bio and image @regression', async ({ request }) => {
+        test('updates profile bio and image', async ({ request }) => {
             const session = await registerUser(request);
             const authHeader = getAuthHeader(session.token);
             const updatedBio = `Updated Bio - ${getUniqueStamp()}`;
@@ -279,7 +279,7 @@ test.describe('/api/user', () => {
             expect(body.user.email).toBe(session.user.email);
         });
 
-        test('normalizes empty string bio and image to null @regression', async ({ request }) => {
+        test('normalizes empty string bio and image to null', async ({ request }) => {
             const session = await registerUser(request);
             const authHeader = getAuthHeader(session.token);
 
@@ -308,7 +308,7 @@ test.describe('/api/user', () => {
         ];
 
         for (const { name, password } of validPasswords) {
-            test(`updates password with ${name} @regression`, async ({ request }) => {
+            test(`updates password with ${name}`, async ({ request }) => {
                 const session = await registerUser(request);
                 const response = await request.put('/api/user', {
                     headers: getAuthHeader(session.token),

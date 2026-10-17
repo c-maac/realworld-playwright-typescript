@@ -17,7 +17,7 @@ test.describe('/api/articles/:slug/favorite', () => {
             sharedUser = await registerUser(request);
         });
 
-        test('returns 401 when favoriting without auth token @negative', async ({ request }) => {
+        test('returns 401 when favoriting without auth token', async ({ request }) => {
             const res = await request.post(`/api/articles/${PRESEEDED_SLUG}/favorite`);
             expect(res.status()).toBe(401);
 
@@ -27,7 +27,7 @@ test.describe('/api/articles/:slug/favorite', () => {
             expect(body.errors.token).toContain('is missing');
         });
 
-        test('returns 404 when favoriting non-existent article @negative', async ({ request }) => {
+        test('returns 404 when favoriting non-existent article', async ({ request }) => {
             const nonExistentSlug = `non-existent-${getUniqueStamp()}`;
             const res = await request.post(`/api/articles/${nonExistentSlug}/favorite`, {
                 headers: getAuthHeader(sharedUser.token),
@@ -100,7 +100,7 @@ test.describe('/api/articles/:slug/favorite', () => {
             });
         });
 
-        test('handles duplicate favorite and unfavorite calls idempotently @regression', async ({ request }) => {
+        test('handles duplicate favorite and unfavorite calls idempotently', async ({ request }) => {
             const user = await registerUser(request);
             const authHeader = getAuthHeader(user.token);
 

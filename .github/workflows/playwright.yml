@@ -60,7 +60,14 @@ jobs:
         run: npx playwright install --with-deps
 
       - name: Run Playwright Tests
-        run: npx playwright test
+        run: |
+          if [ "${{ github.event_name }}" == "push" ] || [ "${{ github.event_name }}" == "pull_request" ]; then
+            echo "Running smoke tests only..."
+            npx playwright test --grep "@smoke"
+          else
+            echo "Running full test suite..."
+            npx playwright test
+          fi
 
       - name: Upload HTML Report to GitHub Pages
         uses: actions/upload-pages-artifact@v3

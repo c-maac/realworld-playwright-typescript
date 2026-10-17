@@ -9,7 +9,7 @@ test.describe('Route Guards & Access Control', () => {
   ];
 
   for (const { name, path } of protectedRoutes) {
-    test(`redirect unauthenticated user from ${name} to login page`, async ({ page }) => {
+    test(`redirect unauthenticated user from ${name} to login page @smoke`, async ({ page }) => {
       await page.goto(path);
 
       await expect(page).toHaveURL(/#?\/login$/);

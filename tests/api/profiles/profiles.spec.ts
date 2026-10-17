@@ -26,7 +26,7 @@ test.describe('/api/profiles/:username', () => {
             expect(body.profile.following).toBe(false);
         });
 
-        test('returns 401 on follow without auth token @negative', async ({ request }) => {
+        test('returns 401 on follow without auth token', async ({ request }) => {
             const response = await request.post(`/api/profiles/${TARGET_USERNAME}/follow`);
 
             expect(response.status()).toBe(401);
@@ -36,7 +36,7 @@ test.describe('/api/profiles/:username', () => {
             expect(body.errors.token).toContain('is missing');
         });
 
-        test('returns 401 on unfollow without auth token @negative', async ({ request }) => {
+        test('returns 401 on unfollow without auth token', async ({ request }) => {
             const response = await request.delete(`/api/profiles/${TARGET_USERNAME}/follow`);
 
             expect(response.status()).toBe(401);
@@ -46,7 +46,7 @@ test.describe('/api/profiles/:username', () => {
             expect(body.errors.token).toContain('is missing');
         });
 
-        test('returns 404 on fetching non-existent profile @negative', async ({ request }) => {
+        test('returns 404 on fetching non-existent profile', async ({ request }) => {
             const nonExistentUsername = `non_existent_user_${getUniqueStamp()}`;
             const response = await request.get(`/api/profiles/${nonExistentUsername}`);
 
@@ -58,7 +58,7 @@ test.describe('/api/profiles/:username', () => {
             expect(body.errors.profile).toContain('not found');
         });
 
-        test('returns 404 on following non-existent profile @negative', async ({ request }) => {
+        test('returns 404 on following non-existent profile', async ({ request }) => {
             const nonExistentUsername = `non_existent_user_${getUniqueStamp()}`;
             const response = await request.post(`/api/profiles/${nonExistentUsername}/follow`, {
                 headers: getAuthHeader(sharedUser.token),
@@ -75,7 +75,7 @@ test.describe('/api/profiles/:username', () => {
         // NOTE / KNOWN ISSUE: RealWorld backend allows users to self-follow due to missing
         // `follower_id !== followee_id` validation. This is an anti-pattern as it inflates
         // metrics and pollutes personal feed logic, but expecting 200 OK matches this server's current behavior.
-        test('returns 422 on self-follow attempt @negative', async ({ request }) => {
+        test('returns 422 on self-follow attempt', async ({ request }) => {
             test.fixme(true, 'Bug: RealWorld API lacks follower_id !== followee_id constraint and returns 200 OK');
 
             const response = await request.post(`/api/profiles/${sharedUser.user.username}/follow`, {

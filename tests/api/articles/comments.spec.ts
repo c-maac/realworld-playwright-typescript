@@ -25,7 +25,7 @@ test.describe('/api/articles/:slug/comments', () => {
             assertMultipleCommentsSchema(await res.json());
         });
 
-        test('returns 401 on comment creation without auth token @negative', async ({ request }) => {
+        test('returns 401 on comment creation without auth token', async ({ request }) => {
             const res = await request.post(`/api/articles/${PRESEEDED_SLUG}/comments`, {
                 data: {
                     comment: { body: 'Unauthorized comment' },
@@ -38,7 +38,7 @@ test.describe('/api/articles/:slug/comments', () => {
             expect(body.errors.token).toContain('is missing');
         });
 
-        test('returns 404 on commenting on non-existent article @negative', async ({ request }) => {
+        test('returns 404 on commenting on non-existent article', async ({ request }) => {
             const nonExistentSlug = `non-existent-${getUniqueStamp()}`;
             const res = await request.post(`/api/articles/${nonExistentSlug}/comments`, {
                 headers: getAuthHeader(sharedUser.token),
@@ -53,7 +53,7 @@ test.describe('/api/articles/:slug/comments', () => {
             expect(body.errors.article).toContain('not found');
         });
 
-        test('returns 403 on comment deletion owned by another user @negative', async ({ request }) => {
+        test('returns 403 on comment deletion owned by another user', async ({ request }) => {
             // Fetch pre-seeded comments on the article
             const commentsRes = await request.get(`/api/articles/${PRESEEDED_SLUG}/comments`);
             expect(commentsRes.status()).toBe(200);
@@ -84,7 +84,7 @@ test.describe('/api/articles/:slug/comments', () => {
             expect(body.errors.comment).toContain('forbidden');
         });
 
-        test('returns 422 on comment creation with empty body @negative', async ({ request }) => {
+        test('returns 422 on comment creation with empty body', async ({ request }) => {
             const res = await request.post(`/api/articles/${PRESEEDED_SLUG}/comments`, {
                 headers: getAuthHeader(sharedUser.token),
                 data: { comment: { body: '' } },
@@ -96,7 +96,7 @@ test.describe('/api/articles/:slug/comments', () => {
             expect(body.errors.body).toContain("can't be blank");
         });
 
-        test('returns 404 on non-existent comment deletion @negative', async ({ request }) => {
+        test('returns 404 on non-existent comment deletion', async ({ request }) => {
             const nonExistentCommentId = 99999999;
 
             const res = await request.delete(

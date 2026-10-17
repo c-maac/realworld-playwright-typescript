@@ -3,7 +3,7 @@ import { getUniqueStamp, registerUser } from '../../../src/helpers/api-helpers';
 
 test.describe('Login Flow', () => {
 
-    test('log in with valid credentials and redirect to home feed', async ({ page, request, loginPage }) => {
+    test('log in with valid credentials and redirect to home feed @smoke', async ({ page, request, loginPage }) => {
 
         const { credentials, user } = await registerUser(request);
 

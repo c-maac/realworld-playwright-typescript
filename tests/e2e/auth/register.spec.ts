@@ -3,7 +3,7 @@ import { createRandomUser } from '../../../src/helpers/user-factory';
 
 test.describe('Registration Flow', () => {
 
-    test('register a new user and redirect to home page', async ({ page, registerPage }) => {
+    test('register a new user and redirect to home page @smoke', async ({ page, registerPage }) => {
 
         await registerPage.goto();
 

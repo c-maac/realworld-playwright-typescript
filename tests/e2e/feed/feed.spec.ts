@@ -3,7 +3,7 @@ import { getAuthHeader } from '../../../src/helpers/api-helpers';
 
 test.describe('Personalized Feed', () => {
 
-    test('display followed author posts in personalized feed', async ({
+    test('display followed author posts in personalized feed @smoke', async ({
         authenticatedPage,
         request,
     }) => {

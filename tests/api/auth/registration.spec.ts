@@ -68,7 +68,7 @@ test.describe('/api/users', () => {
     ];
 
     for (const { name, payload, expectedErrors, fixmeReason } of invalidPayloads) {
-        test(`returns 422 on ${name} @negative`, async ({ request }) => {
+        test(`returns 422 on ${name}`, async ({ request }) => {
 
             if (fixmeReason) {
                 test.fixme(true, fixmeReason);
@@ -89,7 +89,7 @@ test.describe('/api/users', () => {
         });
     }
 
-    test('returns 422 on missing root user object @negative', async ({ request }) => {
+    test('returns 422 on missing root user object', async ({ request }) => {
         const response = await request.post('/api/users', {
             data: {},
         });
@@ -111,7 +111,7 @@ test.describe('/api/users', () => {
     });
 
     // TODO: App acts weird on duplicate email registration!
-    test('returns 422 on duplicate email @negative', async ({ request }) => {
+    test('returns 422 on duplicate email', async ({ request }) => {
         test.fixme(true, 'acts weird on duplicate email registration!');
         const existingSession = await registerUser(request);
 

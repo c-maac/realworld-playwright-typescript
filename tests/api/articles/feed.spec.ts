@@ -11,7 +11,7 @@ const TARGET_AUTHOR_2 = 'janesmith';
 test.describe('/api/articles/feed', () => {
 
     test.describe('Read & Validation Operations', () => {
-        test('returns 401 when accessing feed without authorization @negative', async ({ request }) => {
+        test('returns 401 when accessing feed without authorization', async ({ request }) => {
             const res = await request.get('/api/articles/feed');
             expect(res.status()).toBe(401);
 
