@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { AuthSession, registerUser, getAuthHeader } from '../../../src/helpers/api-helpers';
+import { registerUser, getAuthHeader } from '../../../src/helpers/api-helpers';
 import {
     assertMultipleArticlesSchema,
     assertErrorSchema,
