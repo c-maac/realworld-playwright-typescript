@@ -1,18 +1,18 @@
-import js from "@eslint/js";
-import tseslint from "typescript-eslint";
-import eslintConfigPrettier from "eslint-config-prettier";
-import { defineConfig } from "eslint/config";
+import js from '@eslint/js';
+import tseslint from 'typescript-eslint';
+import eslintConfigPrettier from 'eslint-config-prettier';
+import { defineConfig } from 'eslint/config';
 
 export default defineConfig(
   // Ignore dependencies, build output, and generated Playwright files
   {
     ignores: [
-      "node_modules/",
-      "dist/",
-      "build/",
-      "coverage/",
-      "test-results/",
-      "playwright-report/",
+      'node_modules/',
+      'dist/',
+      'build/',
+      'coverage/',
+      'test-results/',
+      'playwright-report/',
     ],
   },
 
@@ -22,29 +22,29 @@ export default defineConfig(
 
   // Project-specific rules
   {
-    files: ["**/*.ts", "**/*.tsx"],
+    files: ['**/*.ts', '**/*.tsx'],
     rules: {
       // Likely bugs
-      "eqeqeq": "error",
-      "no-debugger": "error",
-      "@typescript-eslint/no-unused-vars": [
-        "error",
+      eqeqeq: 'error',
+      'no-debugger': 'error',
+      '@typescript-eslint/no-unused-vars': [
+        'error',
         {
-          argsIgnorePattern: "^_",
-          varsIgnorePattern: "^_",
+          argsIgnorePattern: '^_',
+          varsIgnorePattern: '^_',
         },
       ],
 
       // TypeScript quality
-      "@typescript-eslint/no-explicit-any": "warn",
+      '@typescript-eslint/no-explicit-any': 'warn',
 
       // Small style preferences
-      "no-console": ["warn", { allow: ["warn", "error"] }],
-      "prefer-const": "warn",
-      "no-var": "error",
+      'no-console': ['warn', { allow: ['warn', 'error'] }],
+      'prefer-const': 'warn',
+      'no-var': 'error',
     },
   },
 
   // Keep last: disables ESLint rules that conflict with Prettier
-  eslintConfigPrettier
+  eslintConfigPrettier,
 );

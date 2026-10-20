@@ -3,22 +3,22 @@ name: Playwright Tests
 on:
   # Triggers when test code is updated
   push:
-    branches: [ main ]
+    branches: [main]
     paths-ignore:
-      - '**.md'          
+      - '**.md'
       - '.gitignore'
-      - 'LICENSE'        
+      - 'LICENSE'
   pull_request:
-    branches: [ main ]
+    branches: [main]
     paths-ignore:
-      - '**.md'          
+      - '**.md'
       - '.gitignore'
-      - 'LICENSE'  
+      - 'LICENSE'
 
   # Nightly automated regression testing
   # Runs Monday-Friday at 6:00 AM UTC
   schedule:
-    - cron: '0 6 * * 1-5' 
+    - cron: '0 6 * * 1-5'
 
   # Enables manual execution from the GitHub Actions UI
   workflow_dispatch:
@@ -35,7 +35,7 @@ on:
 
   # Allows external deployment pipelines to trigger the tests
   repository_dispatch:
-    types: [ app_deployed ]
+    types: [app_deployed]
 
 # Required permissions for GitHub Pages deployment
 permissions:
@@ -45,7 +45,7 @@ permissions:
 
 # Allow only one concurrent deployment
 concurrency:
-  group: "pages"
+  group: 'pages'
   cancel-in-progress: false
 
 jobs:

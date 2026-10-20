@@ -7,51 +7,51 @@ import { HomePage } from '../pages/home.page';
 import { registerUser } from '../helpers/api-helpers';
 
 type AppFixtures = {
-    authenticatedPage: Page;
-    registerPage: RegisterPage;
-    loginPage: LoginPage;
-    editorPage: EditorPage;
-    articlePage: ArticlePage;
-    publicHomePage: HomePage;
-    authenticatedHomePage: HomePage;
+  authenticatedPage: Page;
+  registerPage: RegisterPage;
+  loginPage: LoginPage;
+  editorPage: EditorPage;
+  articlePage: ArticlePage;
+  publicHomePage: HomePage;
+  authenticatedHomePage: HomePage;
 };
 
 export const test = base.extend<AppFixtures>({
-    // Base authenticated page fixture: registers a fresh user and yields the authenticated page context
-    authenticatedPage: async ({ page, request }, use) => {
-       const { token } = await registerUser(request);
+  // Base authenticated page fixture: registers a fresh user and yields the authenticated page context
+  authenticatedPage: async ({ page, request }, use) => {
+    const { token } = await registerUser(request);
 
-        await page.addInitScript((jwt) => {
-            window.localStorage.setItem('jwtToken', jwt);
-        }, token);
+    await page.addInitScript((jwt) => {
+      window.localStorage.setItem('jwtToken', jwt);
+    }, token);
 
-        await page.goto('/');
-        await use(page);
-    },
+    await page.goto('/');
+    await use(page);
+  },
 
-    registerPage: async ({ page }, use) => {
-        await use(new RegisterPage(page));
-    },
+  registerPage: async ({ page }, use) => {
+    await use(new RegisterPage(page));
+  },
 
-    loginPage: async ({ page }, use) => {
-        await use(new LoginPage(page));
-    },
+  loginPage: async ({ page }, use) => {
+    await use(new LoginPage(page));
+  },
 
-    editorPage: async ({ authenticatedPage }, use) => {
-        await use(new EditorPage(authenticatedPage));
-    },
+  editorPage: async ({ authenticatedPage }, use) => {
+    await use(new EditorPage(authenticatedPage));
+  },
 
-    articlePage: async ({ authenticatedPage }, use) => {
-        await use(new ArticlePage(authenticatedPage));
-    },
+  articlePage: async ({ authenticatedPage }, use) => {
+    await use(new ArticlePage(authenticatedPage));
+  },
 
-    publicHomePage: async ({ page }, use) => {
-        await use(new HomePage(page));
-    },
+  publicHomePage: async ({ page }, use) => {
+    await use(new HomePage(page));
+  },
 
-    authenticatedHomePage: async ({ authenticatedPage }, use) => {
-        await use(new HomePage(authenticatedPage));
-    },
+  authenticatedHomePage: async ({ authenticatedPage }, use) => {
+    await use(new HomePage(authenticatedPage));
+  },
 });
 
 export { expect };

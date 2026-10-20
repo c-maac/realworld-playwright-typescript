@@ -3,118 +3,107 @@ import { test, expect } from '../../../src/fixtures/fixtures';
 import { getAuthHeader, getUniqueStamp, toSlug } from '../../../src/helpers/api-helpers';
 
 interface ArticleData {
-    title: string;
-    description: string;
-    body: string;
-    tagList: string[];
+  title: string;
+  description: string;
+  body: string;
+  tagList: string[];
 }
 
 //Seeds an article directly via API using the active session's JWT token stored in localStorage.
 async function seedArticleViaApi(request: APIRequestContext, page: Page, articleData: ArticleData) {
-    const token = await page.evaluate(() => localStorage.getItem('jwtToken'));
+  const token = await page.evaluate(() => localStorage.getItem('jwtToken'));
 
-    if (!token) {
-        throw new Error('Cannot seed article: No JWT token found in localStorage.');
-    }
+  if (!token) {
+    throw new Error('Cannot seed article: No JWT token found in localStorage.');
+  }
 
-    const response = await request.post('https://api.realworld.show/api/articles', {
-        headers: {
-            ...getAuthHeader(token),
-            'Content-Type': 'application/json',
-        },
-        data: { article: articleData },
-    });
+  const response = await request.post('https://api.realworld.show/api/articles', {
+    headers: {
+      ...getAuthHeader(token),
+      'Content-Type': 'application/json',
+    },
+    data: { article: articleData },
+  });
 
-    expect(response.ok()).toBeTruthy();
-    const { article } = await response.json();
-    return article;
+  expect(response.ok()).toBeTruthy();
+  const { article } = await response.json();
+  return article;
 }
 
-
 test.describe('Article Lifecycle', () => {
+  test('create and publish new article @smoke', async ({ editorPage, page }) => {
+    await editorPage.goto();
 
-    test('create and publish new article @smoke', async ({ editorPage, page }) => {
+    const timestamp = getUniqueStamp();
+    const articleTitle = `Test Article ${timestamp}`;
+    const articleDescription = 'E2E test description';
+    const articleBody = 'Main body content written in markdown format.';
+    const tags = ['playwright', 'typescript'];
 
-        await editorPage.goto();
+    await editorPage.createArticle(articleTitle, articleDescription, articleBody, tags);
 
-        const timestamp = getUniqueStamp();
-        const articleTitle = `Test Article ${timestamp}`;
-        const articleDescription = 'E2E test description';
-        const articleBody = 'Main body content written in markdown format.';
-        const tags = ['playwright', 'typescript'];
+    await expect(page).toHaveURL(toSlug(articleTitle));
+    await expect(page.getByRole('heading', { name: articleTitle })).toBeVisible();
+    await expect(page.getByText(articleBody)).toBeVisible();
 
-        await editorPage.createArticle(
-            articleTitle,
-            articleDescription,
-            articleBody,
-            tags
-        );
+    for (const tag of tags) {
+      await expect(page.getByText(tag, { exact: true })).toBeVisible();
+    }
+  });
 
-        await expect(page).toHaveURL(toSlug(articleTitle));
-        await expect(page.getByRole('heading', { name: articleTitle })).toBeVisible();
-        await expect(page.getByText(articleBody)).toBeVisible();
+  test('edit existing article title', async ({ authenticatedPage, request, editorPage }) => {
+    const timestamp = getUniqueStamp();
+    const initialTitle = `Original Article ${timestamp}`;
+    const updatedTitle = `Updated Article ${timestamp}`;
 
-        for (const tag of tags) {
-            await expect(page.getByText(tag, { exact: true })).toBeVisible();
-        }
+    const article = await seedArticleViaApi(request, authenticatedPage, {
+      title: initialTitle,
+      description: 'Original description for edit test.',
+      body: 'Original body content for edit test.',
+      tagList: ['editing'],
     });
 
-    test('edit existing article title', async ({ authenticatedPage, request, editorPage }) => {
+    await authenticatedPage.goto(`/editor/${article.slug}`);
 
-        const timestamp = getUniqueStamp();
-        const initialTitle = `Original Article ${timestamp}`;
-        const updatedTitle = `Updated Article ${timestamp}`;
+    await expect(editorPage.titleInput).toHaveValue(initialTitle);
+    await editorPage.titleInput.fill(updatedTitle);
+    await editorPage.publishButton.click();
 
-        const article = await seedArticleViaApi(request, authenticatedPage, {
-            title: initialTitle,
-            description: 'Original description for edit test.',
-            body: 'Original body content for edit test.',
-            tagList: ['editing'],
-        });
+    await expect(authenticatedPage).toHaveURL(toSlug(updatedTitle));
+    await expect(authenticatedPage.getByRole('heading', { name: updatedTitle })).toBeVisible();
+  });
 
-        await authenticatedPage.goto(`/editor/${article.slug}`);
+  test('delete existing article', async ({ authenticatedPage, request }) => {
+    const timestamp = getUniqueStamp();
+    const articleTitle = `Delete Article ${timestamp}`;
 
-        await expect(editorPage.titleInput).toHaveValue(initialTitle);
-        await editorPage.titleInput.fill(updatedTitle);
-        await editorPage.publishButton.click();
-
-        await expect(authenticatedPage).toHaveURL(toSlug(updatedTitle));
-        await expect(authenticatedPage.getByRole('heading', { name: updatedTitle })).toBeVisible();
+    const article = await seedArticleViaApi(request, authenticatedPage, {
+      title: articleTitle,
+      description: 'Description for deletion test',
+      body: 'Body content for deletion test',
+      tagList: ['delete'],
     });
 
-    test('delete existing article', async ({ authenticatedPage, request }) => {
+    await authenticatedPage.goto(`/article/${article.slug}`);
+    await expect(authenticatedPage.getByRole('heading', { name: articleTitle })).toBeVisible();
 
-        const timestamp = getUniqueStamp();
-        const articleTitle = `Delete Article ${timestamp}`;
+    await authenticatedPage.getByRole('button', { name: 'Delete Article' }).first().click();
+    await expect(authenticatedPage).toHaveURL('/');
 
-        const article = await seedArticleViaApi(request, authenticatedPage, {
-            title: articleTitle,
-            description: 'Description for deletion test',
-            body: 'Body content for deletion test',
-            tagList: ['delete'],
-        });
+    await authenticatedPage.goto(`/article/${article.slug}`);
+    await expect(authenticatedPage.getByRole('heading', { name: articleTitle })).not.toBeVisible();
+  });
 
-        await authenticatedPage.goto(`/article/${article.slug}`);
-        await expect(authenticatedPage.getByRole('heading', { name: articleTitle })).toBeVisible();
+  test('display validation errors on empty form submission', async ({ editorPage }) => {
+    await editorPage.goto();
 
-        await authenticatedPage.getByRole('button', { name: 'Delete Article' }).first().click();
-        await expect(authenticatedPage).toHaveURL('/');
+    await editorPage.publishButton.click();
 
-        await authenticatedPage.goto(`/article/${article.slug}`);
-        await expect(authenticatedPage.getByRole('heading', { name: articleTitle })).not.toBeVisible();
-    });
-
-    test('display validation errors on empty form submission', async ({ editorPage }) => {
-
-        await editorPage.goto();
-
-        await editorPage.publishButton.click();
-
-        await expect(editorPage.errorMessages).toBeVisible();
-        await expect(editorPage.errorMessages.locator('li')).toContainText([
-            "title can't be blank",
-            "description can't be blank",
-            "body can't be blank"
-        ]);
-    });
+    await expect(editorPage.errorMessages).toBeVisible();
+    await expect(editorPage.errorMessages.locator('li')).toContainText([
+      "title can't be blank",
+      "description can't be blank",
+      "body can't be blank",
+    ]);
+  });
 });

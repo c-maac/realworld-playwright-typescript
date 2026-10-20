@@ -1,7 +1,6 @@
 import { test, expect } from '@playwright/test';
 
 test.describe('Route Guards & Access Control', () => {
-
   const protectedRoutes = [
     { name: 'editor page', path: '/editor' },
     { name: 'editor article slug page', path: '/editor/some-article-slug' },
@@ -16,5 +15,4 @@ test.describe('Route Guards & Access Control', () => {
       await expect(page.getByRole('heading', { name: /sign in/i })).toBeVisible();
     });
   }
-
 });
