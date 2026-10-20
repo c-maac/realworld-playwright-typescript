@@ -1,32 +1,50 @@
-import js from '@eslint/js';
-import tseslint from 'typescript-eslint';
-import eslintConfigPrettier from 'eslint-config-prettier';
+import js from "@eslint/js";
+import tseslint from "typescript-eslint";
+import eslintConfigPrettier from "eslint-config-prettier";
+import { defineConfig } from "eslint/config";
 
-export default tseslint.config(
-    // Ignore build outputs and external dependencies
-    {
-        ignores: ['dist/', 'node_modules/', 'coverage/', 'build/'],
-    },
+export default defineConfig(
+  // Ignore dependencies, build output, and generated Playwright files
+  {
+    ignores: [
+      "node_modules/",
+      "dist/",
+      "build/",
+      "coverage/",
+      "test-results/",
+      "playwright-report/",
+    ],
+  },
 
-    // Base JS & TS Rules
-    js.configs.recommended,
-    ...tseslint.configs.recommended,
+  // Base JavaScript and TypeScript rules
+  js.configs.recommended,
+  tseslint.configs.recommended,
 
-    // Custom project rules
-    {
-        files: ['**/*.ts', '**/*.tsx'],
-        languageOptions: {
-            parserOptions: {
-                project: true, // Enables type-aware linting via your tsconfig.json
-            },
+  // Project-specific rules
+  {
+    files: ["**/*.ts", "**/*.tsx"],
+    rules: {
+      // Likely bugs
+      "eqeqeq": "error",
+      "no-debugger": "error",
+      "@typescript-eslint/no-unused-vars": [
+        "error",
+        {
+          argsIgnorePattern: "^_",
+          varsIgnorePattern: "^_",
         },
-        rules: {
-            '@typescript-eslint/no-explicit-any': 'warn',
-            '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
-            'no-console': ['warn', { allow: ['warn', 'error'] }],
-        },
-    },
+      ],
 
-    // Disable formatting rules conflicting with Prettier
-    eslintConfigPrettier
+      // TypeScript quality
+      "@typescript-eslint/no-explicit-any": "warn",
+
+      // Small style preferences
+      "no-console": ["warn", { allow: ["warn", "error"] }],
+      "prefer-const": "warn",
+      "no-var": "error",
+    },
+  },
+
+  // Keep last: disables ESLint rules that conflict with Prettier
+  eslintConfigPrettier
 );
