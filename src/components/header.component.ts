@@ -2,6 +2,7 @@ import { Page, Locator } from '@playwright/test';
 
 export class HeaderComponent {
   readonly page: Page;
+  readonly navigation: Locator;
 
   // Shared
   readonly brandLink: Locator;
@@ -18,8 +19,9 @@ export class HeaderComponent {
 
   constructor(page: Page) {
     this.page = page;
+    this.navigation = page.getByRole('navigation');
     // Scoped strictly to navigation to avoid matching footer brand link.
-    this.brandLink = page.getByRole('navigation').getByRole('link', { name: 'conduit' });
+    this.brandLink = this.navigation.getByRole('link', { name: 'conduit' });
     this.homeLink = page.getByRole('link', { name: 'Home' });
     this.loginLink = page.getByRole('link', { name: 'Sign in' });
     this.registerLink = page.getByRole('link', { name: 'Sign up' });

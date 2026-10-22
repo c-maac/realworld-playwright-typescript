@@ -3,6 +3,7 @@ import { BasePage } from './base.page';
 import { TestUser } from '../helpers/user-factory';
 
 export class RegisterPage extends BasePage {
+  readonly signUpForm: Locator;
   readonly usernameInput: Locator;
   readonly emailInput: Locator;
   readonly passwordInput: Locator;
@@ -11,6 +12,7 @@ export class RegisterPage extends BasePage {
 
   constructor(page: Page) {
     super(page);
+    this.signUpForm = page.locator('form');
     this.usernameInput = page.getByPlaceholder('Username');
     this.emailInput = page.getByPlaceholder('Email');
     this.passwordInput = page.getByPlaceholder('Password');
