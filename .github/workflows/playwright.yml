@@ -32,6 +32,11 @@ on:
           - on-first-retry
           - retain-on-failure
           - 'off'
+      update_visual_baselines:
+        description: 'Update visual regression baselines'
+        required: false
+        default: false
+        type: boolean
 
   # Allows external deployment pipelines to trigger the tests
   repository_dispatch:
@@ -42,11 +47,6 @@ permissions:
   contents: read
   pages: write
   id-token: write
-
-# Allow only one concurrent deployment
-concurrency:
-  group: 'pages'
-  cancel-in-progress: false
 
 jobs:
   test:
@@ -70,14 +70,29 @@ jobs:
         run: npx playwright install --with-deps
 
       - name: Run Playwright Tests
+        if: ${{ !(github.event_name == 'workflow_dispatch' && inputs.update_visual_baselines == true) }}
+        env:
+          TRACE_MODE: ${{ inputs.trace_mode || 'on-first-retry' }}
         run: |
           if [ "${{ github.event_name }}" == "push" ] || [ "${{ github.event_name }}" == "pull_request" ]; then
             echo "Running smoke tests only..."
-            npx playwright test --grep "@smoke" --trace ${{ inputs.trace_mode || 'on-first-retry' }}
+            npx playwright test --grep "@smoke" --trace "$TRACE_MODE"
           else
             echo "Running full test suite..."
-            npx playwright test --trace ${{ inputs.trace_mode || 'on-first-retry' }}
+            npx playwright test --trace "$TRACE_MODE"
           fi
+
+      - name: Update Visual Baselines
+        if: ${{ !cancelled() && github.event_name == 'workflow_dispatch' && inputs.update_visual_baselines == true }}
+        run: npx playwright test --project=visual-chrome --update-snapshots
+
+      - name: Upload Updated Visual Baselines
+        if: ${{ !cancelled() && github.event_name == 'workflow_dispatch' && inputs.update_visual_baselines == true }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: updated-visual-baselines
+          path: tests/visual/**/*.png
+          if-no-files-found: error
 
       - name: Upload HTML Report to GitHub Pages
         uses: actions/upload-pages-artifact@v3
@@ -89,6 +104,9 @@ jobs:
     needs: test
     if: always()
     runs-on: ubuntu-latest
+    concurrency:
+      group: pages-deploy
+      cancel-in-progress: false
     steps:
       - name: Deploy to GitHub Pages
         id: deployment
