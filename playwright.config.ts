@@ -64,6 +64,15 @@ export default defineConfig({
         baseURL: 'https://demo.realworld.show',
       },
     },
+
+    {
+      name: 'visual-chrome',
+      testDir: './tests/visual',
+      use: {
+        ...devices['Desktop Chrome'],
+        baseURL: 'https://demo.realworld.show',
+      },
+    },
   ],
 
   /* Test against mobile viewports. */
