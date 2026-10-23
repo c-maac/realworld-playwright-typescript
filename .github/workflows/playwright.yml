@@ -1,5 +1,15 @@
 name: Playwright Tests
 
+run-name: >
+  ${{
+    github.event_name == 'push' && format('Smoke tests – {0}', github.event.head_commit.message) ||
+    github.event_name == 'pull_request' && format('PR #{0} – {1}', github.event.number, github.event.pull_request.title) ||
+    github.event_name == 'schedule' && 'Nightly regression tests' ||
+    github.event_name == 'workflow_dispatch' && inputs.update_visual_baselines && 'Update visual baselines' ||
+    github.event_name == 'workflow_dispatch' && 'Manual Playwright test run' ||
+    'Playwright tests – app deployed'
+  }}
+
 on:
   # Triggers when test code is updated
   push:
