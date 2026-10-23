@@ -73,6 +73,15 @@ export default defineConfig({
         baseURL: 'https://demo.realworld.show',
       },
     },
+
+    {
+      name: 'accessibility-chrome',
+      testDir: './tests/accessibility',
+      use: {
+        ...devices['Desktop Chrome'],
+        baseURL: 'https://demo.realworld.show',
+      },
+    },
   ],
 
   /* Test against mobile viewports. */
