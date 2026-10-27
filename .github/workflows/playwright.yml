@@ -61,7 +61,7 @@ permissions:
 jobs:
   test:
     timeout-minutes: 30
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
 
     steps:
       - name: Checkout Repository
@@ -113,7 +113,7 @@ jobs:
   deploy:
     needs: test
     if: always()
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     concurrency:
       group: pages-deploy
       cancel-in-progress: false
