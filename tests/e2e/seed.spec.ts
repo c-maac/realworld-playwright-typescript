@@ -1,12 +1,18 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from '../../src/fixtures/fixtures';
+import { createRandomUser } from '../../src/helpers/user-factory';
 
-test('seed', async ({ page }) => {
-  await page.goto('/');
-  // TODO: MAKE SEED MEANINGFUL
-  // Add only the setup the Planner needs, such as login:
-  // await page.getByLabel('Email').fill(process.env.TEST_USER_EMAIL!);
-  // await page.getByLabel('Password').fill(process.env.TEST_USER_PASSWORD!);
-  // await page.getByRole('button', { name: 'Log in' }).click();
+test('seed', async ({ page, registerPage }) => {
+  await registerPage.goto();
 
-  await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
+  const newUser = createRandomUser();
+  await registerPage.register(newUser);
+
+  await expect(page).toHaveURL('/');
+  await expect(page.getByRole('link', { name: newUser.username })).toBeVisible();
+
+  const firstArticlePreview = page
+    .locator('.article-preview')
+    .filter({ has: page.getByRole('heading') })
+    .first();
+  await expect(firstArticlePreview).toBeVisible();
 });
