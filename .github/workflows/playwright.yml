@@ -81,16 +81,27 @@ jobs:
         env:
           TRACE_MODE: ${{ inputs.trace_mode || 'on-first-retry' }}
         run: |
+          set +e
           if [ "${{ github.event_name }}" == "push" ] || [ "${{ github.event_name }}" == "pull_request" ]; then
-            echo "Running smoke tests in parallel..."
-            npx playwright test --grep "@smoke" --grep-invert "@serial" --workers=2 --trace "$TRACE_MODE"
-            echo "Running serial API smoke tests..."
-            npx playwright test --workers=1 --grep "@smoke" --grep "@serial" --trace "$TRACE_MODE"
+            PLAYWRIGHT_BLOB_OUTPUT_DIR=blob-report/parallel npx playwright test --grep "@smoke" --grep-invert "@serial" --workers=2 --trace "$TRACE_MODE" --reporter=blob
+            parallel_status=$?
+            PLAYWRIGHT_BLOB_OUTPUT_DIR=blob-report/serial npx playwright test --workers=1 --grep "@smoke" --grep "@serial" --trace "$TRACE_MODE" --reporter=blob
+            serial_status=$?
           else
-            echo "Running non-serial tests in parallel..."
-            npx playwright test --grep-invert "@serial" --workers=2 --trace "$TRACE_MODE"
-            echo "Running serial API tests..."
-            npx playwright test --workers=1 --grep "@serial" --trace "$TRACE_MODE"
+            PLAYWRIGHT_BLOB_OUTPUT_DIR=blob-report/parallel npx playwright test --grep-invert "@serial" --workers=2 --trace "$TRACE_MODE" --reporter=blob
+            parallel_status=$?
+            PLAYWRIGHT_BLOB_OUTPUT_DIR=blob-report/serial npx playwright test --workers=1 --grep "@serial" --trace "$TRACE_MODE" --reporter=blob
+            serial_status=$?
+          fi
+          set -e
+
+          mkdir -p merged-blob-report
+          cp blob-report/parallel/*.zip merged-blob-report/
+          cp blob-report/serial/*.zip merged-blob-report/
+          npx playwright merge-reports --reporter=html merged-blob-report
+
+          if [ "$parallel_status" -ne 0 ] || [ "$serial_status" -ne 0 ]; then
+            exit 1
           fi
 
       - name: Update Visual Baselines
