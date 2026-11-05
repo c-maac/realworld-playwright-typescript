@@ -97,6 +97,14 @@ npx playwright test --debug
 npx playwright test --ui
 ```
 
+## AI-assisted test planning and generation
+
+The repository includes three custom Playwright agents in `.github/agents/`. In VS Code Copilot Chat, select **playwright-test-planner** to explore the application, check existing coverage, and create a feature-focused plan in `specs/`. Then select **playwright-test-generator** and provide the plan (or a specific scenario) to explore the relevant flow, add the corresponding test in `tests/`, and run that test.
+
+For failing tests, select **playwright-test-healer** to investigate the failure, identify its root cause, and make a focused fix to the affected test(s), then rerun them to verify the result.
+
+The planner uses `tests/e2e/seed.spec.ts` to initialize an authenticated browser session when exploring authenticated flows. Both agents use the Playwright MCP server configured in their agent files; ensure the project dependencies and Playwright browsers are installed first.
+
 ### Reports and traces
 
 After a run, view the HTML report with:
