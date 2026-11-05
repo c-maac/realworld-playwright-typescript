@@ -82,11 +82,15 @@ jobs:
           TRACE_MODE: ${{ inputs.trace_mode || 'on-first-retry' }}
         run: |
           if [ "${{ github.event_name }}" == "push" ] || [ "${{ github.event_name }}" == "pull_request" ]; then
-            echo "Running smoke tests only..."
-            npx playwright test --grep "@smoke" --trace "$TRACE_MODE"
+            echo "Running smoke tests in parallel..."
+            npx playwright test --grep "@smoke" --grep-invert "@serial" --workers=2 --trace "$TRACE_MODE"
+            echo "Running serial API smoke tests..."
+            npx playwright test --workers=1 --grep "@smoke" --grep "@serial" --trace "$TRACE_MODE"
           else
-            echo "Running full test suite..."
-            npx playwright test --trace "$TRACE_MODE"
+            echo "Running non-serial tests in parallel..."
+            npx playwright test --grep-invert "@serial" --workers=2 --trace "$TRACE_MODE"
+            echo "Running serial API tests..."
+            npx playwright test --workers=1 --grep "@serial" --trace "$TRACE_MODE"
           fi
 
       - name: Update Visual Baselines

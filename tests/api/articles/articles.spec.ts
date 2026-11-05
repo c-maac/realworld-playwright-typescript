@@ -179,7 +179,9 @@ test.describe('/api/articles', () => {
   });
 
   test.describe('State-Mutating Lifecycle Operations', () => {
-    test('manages article lifecycle (create, read, update, delete) @smoke', async ({ request }) => {
+    test('manages article lifecycle (create, read, update, delete) @smoke @serial', async ({
+      request,
+    }) => {
       const author = await registerUser(request);
       const authHeader = getAuthHeader(author.token);
       const timestamp = getUniqueStamp();

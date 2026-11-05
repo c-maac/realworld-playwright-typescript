@@ -123,7 +123,7 @@ test.describe('/api/user', () => {
     }
   });
 
-  test.describe('State-Mutating Updates', () => {
+  test.describe('State-Mutating Updates @serial', () => {
     test('updates username and verifies public profile resolution @smoke', async ({ request }) => {
       const session = await registerUser(request);
       const authHeader = getAuthHeader(session.token);

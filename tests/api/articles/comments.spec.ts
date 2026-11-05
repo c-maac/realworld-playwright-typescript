@@ -118,7 +118,9 @@ test.describe('/api/articles/:slug/comments', () => {
   });
 
   test.describe('State-Mutating Lifecycle Operations', () => {
-    test('manages comment lifecycle (create, verify list, delete) @smoke', async ({ request }) => {
+    test('manages comment lifecycle (create, verify list, delete) @smoke  @serial', async ({
+      request,
+    }) => {
       const author = await registerUser(request);
       const authHeader = getAuthHeader(author.token);
       const commentText = `Automation comment ${getUniqueStamp()}`;

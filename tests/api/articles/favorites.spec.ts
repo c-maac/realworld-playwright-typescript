@@ -46,7 +46,7 @@ test.describe('/api/articles/:slug/favorite', () => {
   });
 
   test.describe('State-Mutating Lifecycle Operations', () => {
-    test('manages favorite and unfavorite lifecycle @smoke', async ({ request }) => {
+    test('manages favorite and unfavorite lifecycle @smoke  @serial', async ({ request }) => {
       const user = await registerUser(request);
       const authHeader = getAuthHeader(user.token);
       let initialFavoritesCount: number;
