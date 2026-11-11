@@ -105,9 +105,8 @@ test.describe('/api/users', () => {
     }
   });
 
-  // TODO: App acts weird on duplicate email registration!
   test('returns 422 on duplicate email', async ({ request }) => {
-    test.fixme(true, 'acts weird on duplicate email registration!');
+    test.fixme(true, 'Bug: RealWorld API does not reject duplicate email registration as expected');
     const existingSession = await registerUser(request);
 
     const response = await request.post('/api/users', {
