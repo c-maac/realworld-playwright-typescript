@@ -20,7 +20,26 @@ Testing effort is concentrated in the fast API layer, with selective browser-bas
 - **Diagnostics:** Manual runs can select the Playwright trace mode, such as `retain-on-failure` or `on-first-retry`.
 - **Visual snapshot maintenance:** Manual runs can generate updated visual snapshots for review.
 - **Reporting:** Every run produces an HTML report artifact; specific triggers also publish the latest report to GitHub Pages.
-- **Efficiency:** The full suite uses two parallel workers on a pinned `ubuntu-24.04` runner, keeping the complete run to roughly four minutes.
+
+## Concurrency & Remote-Environment Stability
+
+**Playwright Concurrency Diagnostic (`playwright-concurrency-diagnostic.yml`)**  
+A manually triggered workflow that runs the suite at different worker counts
+to investigate the remote RealWorld environment’s stability under concurrent
+browser and API activity.
+
+Diagnostic runs showed more failures at higher worker counts. Two-worker runs
+included missing data and UI timeouts, while four-worker runs received HTTP
+503 responses that caused downstream failures. This indicates that the RealWorld environment
+is sensitive to concurrent load.
+
+To reduce concurrent load on the backend, some multi-step CRUD tests
+are tagged `@serial` and run with one worker after the parallel suite
+finishes. The tests remain isolated; serialization only limits simultaneous
+backend activity. This approach largely resolved the observed failures.
+
+Tests marked `fixme` document limitations in the public demo
+application, they are not skipped to keep CI green.
 
 ## Test Environment & Constraints
 
